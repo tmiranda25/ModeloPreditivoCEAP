@@ -24,8 +24,10 @@ psql -c "\copy cota_uf_stg FROM '../files/cota_uf.csv' WITH (FORMAT CSV, HEADER,
 
 for i in 14 15 16 17 18 19 20 21; do
     file=../files/Ano-20$i.csv
+    wget -O $file.zip https://www.camara.leg.br/cotas/Ano-20$i.csv.zip
     unzip -o -d ../files $file.zip 
     if [ -f "$file" ]; then
+        rm $file.zip
         psql -c "\copy ceap_stg FROM '$file' WITH (FORMAT CSV, HEADER, DELIMITER ';')" $dsn
         rm $file
     fi
