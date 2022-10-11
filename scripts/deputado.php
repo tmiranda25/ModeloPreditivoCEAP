@@ -4,11 +4,9 @@ foreach([54, 55, 56] AS $legislatura){
     
     try{
         
-        $filename = \sprintf('../files/deputado_%d', $legislatura);
-        
         $json = \json_decode(\file_get_contents("https://dadosabertos.camara.leg.br/api/v2/deputados?idLegislatura=$legislatura&ordem=ASC&ordenarPor=nome"));
         
-        $csv_filename = $filename.'.csv';
+        $csv_filename = "../dados_brutos/deputado_$legislatura.csv";
         
         $handle = \fopen($csv_filename, 'w');
         

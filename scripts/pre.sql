@@ -47,59 +47,11 @@ urlDocumento text
 
 DROP TABLE IF EXISTS eleitor_stg;
 create table if not exists eleitor_stg(
-NR_ANO_ELEICAO text,
-CD_PAIS text,
-NM_PAIS text,
-SG_REGIAO text,
-NM_REGIAO text,
-SG_UF text,
-NM_UF text,
-CD_MUNICIPIO text,
-NM_MUNICIPIO text,
-QTD_ELEITORES text,
-QTD_ELEITORES_FEMININO text,
-QTD_ELEITORES_MASCULINO text,
-QTD_ELEITORES_NAOINFORMADO text,
-QTD_ELEITORES_MENOR16 text,
-QTD_ELEITORES_16 text,
-QTD_ELEITORES_17 text,
-QTD_ELEITORES_18 text,
-QTD_ELEITORES_19 text,
-QTD_ELEITORES_20 text,
-QTD_ELEITORES_21A24 text,
-QTD_ELEITORES_25A29 text,
-QTD_ELEITORES_30A34 text,
-QTD_ELEITORES_35A39 text,
-QTD_ELEITORES_40A44 text,
-QTD_ELEITORES_45A49 text,
-QTD_ELEITORES_50A54 text,
-QTD_ELEITORES_55A59 text,
-QTD_ELEITORES_60A64 text,
-QTD_ELEITORES_65A69 text,
-QTD_ELEITORES_70A74 text,
-QTD_ELEITORES_75A79 text,
-QTD_ELEITORES_80A84 text,
-QTD_ELEITORES_85A89 text,
-QTD_ELEITORES_90A94 text,
-QTD_ELEITORES_95A99 text,
-QTD_ELEITORES_MAIORIGUAL100 text,
-QTD_ELEITORES_IDADEINVALIDO text,
-QTD_ELEITORES_IDADENAOSEAPLICA text,
-QTD_ELEITORES_IDADENAOINFORMADA text,
-QTD_ELEITORES_COMBIOMETRIA text,
-QTD_ELEITORES_SEMBIOMETRIA text,
-QTD_ELEITORES_DEFICIENTE text,
-QUANTITATIVO_NOMESOCIAL text);
-
-ALTER TABLE eleitor_stg ALTER COLUMN qtd_eleitores TYPE integer USING qtd_eleitores::integer;
-ALTER TABLE eleitor_stg ALTER COLUMN qtd_eleitores_masculino TYPE integer USING qtd_eleitores_masculino::integer;
-ALTER TABLE eleitor_stg ALTER COLUMN qtd_eleitores_feminino TYPE integer USING qtd_eleitores_feminino::integer;
-ALTER TABLE eleitor_stg ALTER COLUMN qtd_eleitores_naoinformado TYPE integer USING qtd_eleitores_naoinformado::integer;
-
-DROP TABLE IF EXISTS eleitor2010_stg;
-create table if not exists eleitor2010_stg(
+ano text,
 uf text,
-eleitores integer);
+eleitores text);
+
+ALTER TABLE eleitor_stg ALTER COLUMN eleitores TYPE integer USING eleitores::integer;
 
 DROP TABLE IF EXISTS capitais_stg;
 create table capitais_stg(
@@ -125,7 +77,6 @@ DROP TABLE IF EXISTS tempo_mandato_stg;
 create table tempo_mandato_stg(
 legislatura text,
 nome text,
-carteira text,
 dias text
 );
 
@@ -143,7 +94,6 @@ create table deputado_stg(
     siglapartido text not null,
     siglauf text,
     idlegislatura integer,
-    carteira integer,
     PRIMARY KEY(iddeputado, idlegislatura)
 );
 commit;

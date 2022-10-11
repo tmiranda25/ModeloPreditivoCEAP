@@ -12,7 +12,6 @@ DROP TABLE IF EXISTS dados;
 CREATE TABLE dados(
 ano integer,
 mes integer,
-carteira integer,
 legislatura integer,
 anolegislatura text,
 uf text,
@@ -24,6 +23,7 @@ distancia integer,
 vagas integer,
 valor numeric(20,2)
 );
+
 DROP TABLE IF EXISTS dados_v2;
 CREATE TABLE dados_v2(
 ano integer,
@@ -61,10 +61,7 @@ CREATE TABLE eleitor(
 id serial primary key,
 ano integer,
 uf text,
-total integer,
-masculino integer,
-feminino integer,
-naoinformado integer
+total integer
 );
 
 DROP TABLE IF EXISTS ceap;
@@ -74,7 +71,6 @@ iddeputado integer,
 emissao date,
 ano integer,
 mes integer,
-carteira integer,
 legislatura integer,
 uf text,
 partido text,
@@ -106,7 +102,6 @@ ano integer
 
 DROP TABLE IF EXISTS tempo_mandato;
 CREATE TABLE tempo_mandato(
-carteira integer,
 iddeputado integer,
 legislatura integer
 );
@@ -125,69 +120,34 @@ create table deputado(
     siglapartido text not null,
     siglauf text,
     legislatura integer,
-    carteira integer,
     PRIMARY KEY(iddeputado, legislatura)
 );
 
--- DROP TABLE IF EXISTS periodo_cota;
--- CREATE TABLE periodo_cota(
--- ano integer,
--- inicio date,
--- fim date,
--- legislatura integer
--- );
--- 
--- INSERT INTO periodo_cota(ano, legislatura, inicio, fim)VALUES(2014, 54, '2014-02-01', '2015-01-31');
--- INSERT INTO periodo_cota(ano, legislatura, inicio, fim)VALUES(2015, 55, '2015-02-01', '2016-01-31');
--- INSERT INTO periodo_cota(ano, legislatura, inicio, fim)VALUES(2016, 55, '2016-02-01', '2017-01-31');
--- INSERT INTO periodo_cota(ano, legislatura, inicio, fim)VALUES(2017, 55, '2017-02-01', '2018-01-31');
--- INSERT INTO periodo_cota(ano, legislatura, inicio, fim)VALUES(2018, 55, '2018-02-01', '2019-01-31');
--- INSERT INTO periodo_cota(ano, legislatura, inicio, fim)VALUES(2019, 56, '2019-02-01', '2020-01-31');
--- INSERT INTO periodo_cota(ano, legislatura, inicio, fim)VALUES(2020, 57, '2020-02-01', '2021-01-31');
--- INSERT INTO periodo_cota(ano, legislatura, inicio, fim)VALUES(2021, 58, '2021-02-01', '2022-01-31');
-
--- alter table dados add foreign key(id_ceap) references ceap(id);
--- alter table dados add foreign key(id_eleitor) references eleitor(id);
--- alter table dados add foreign key(id_capital) references capitais(id);
--- 
--- create index on dados(id_ceap);
-
-
 -- vlrtotal - vlrglosa - vlrrestituicao
-INSERT INTO eleitor(uf, ano, total, feminino, masculino, naoinformado)
-SELECT sg_uf, nr_ano_eleicao::integer, SUM(qtd_eleitores), SUM(qtd_eleitores_feminino), SUM(qtd_eleitores_masculino), SUM(qtd_eleitores_naoinformado)
-FROM eleitor_stg
-WHERE nm_pais = 'Brasil' 
-GROUP BY 1, 2;
-
 INSERT INTO eleitor(uf, ano, total)
-SELECT uf, 2010, eleitores
-FROM eleitor2010_stg;
+SELECT uf, ano::integer, eleitores::integer
+FROM eleitor_stg;
 
-UPDATE ceap_stg SET nucarteiraparlamentar = 0 WHERE nucarteiraparlamentar = '' OR nucarteiraparlamentar IS NULL;
 UPDATE ceap_stg SET vlrdocumento = 0 WHERE vlrdocumento = '';
 UPDATE ceap_stg SET vlrglosa = 0 WHERE vlrglosa = '';
 UPDATE ceap_stg SET vlrrestituicao = 0 WHERE vlrrestituicao = '';
 
-UPDATE ceap_stg SET sgpartido = 'SOLIDARIEDADE' WHERE sgpartido = 'SDD';
-UPDATE ceap_stg SET sgpartido = 'PATRIOTA' WHERE sgpartido = 'PATRI';
-UPDATE ceap_stg SET sgpartido = 'MDB' WHERE sgpartido = 'PMDB';
-UPDATE ceap_stg SET sgpartido = 'PODEMOS' WHERE sgpartido = 'PHS' AND codlegislatura = '56';
-UPDATE ceap_stg SET sgpartido = 'PP' WHERE sgpartido = 'PP**';
-UPDATE ceap_stg SET sgpartido = 'PCdoB' WHERE sgpartido = 'PPL' AND codlegislatura = '56';
--- UPDATE ceap_stg SET sgpartido = 'UNIÃO' WHERE sgpartido = 'PSL';
--- UPDATE ceap_stg SET sgpartido = 'UNIÃO' WHERE sgpartido = 'DEM';
-UPDATE ceap_stg SET sgpartido = 'REPUBLICANOS' WHERE sgpartido = 'PRB';
-UPDATE ceap_stg SET sgpartido = 'PODEMOS' WHERE sgpartido = 'PODE';
+UPDATE ceap_stg SET sgpartido = 'SOLIDARIEDADE' WHERE trim(sgpartido) = 'SDD';
+UPDATE ceap_stg SET sgpartido = 'PATRIOTA' WHERE trim(sgpartido) = 'PATRI';
+UPDATE ceap_stg SET sgpartido = 'MDB' WHERE trim(sgpartido) = 'PMDB';
+UPDATE ceap_stg SET sgpartido = 'PODEMOS' WHERE trim(sgpartido) = 'PHS' AND codlegislatura = '56';
+UPDATE ceap_stg SET sgpartido = 'PP' WHERE trim(sgpartido) = 'PP**';
+UPDATE ceap_stg SET sgpartido = 'PCdoB' WHERE trim(sgpartido) = 'PPL' AND codlegislatura = '56';
+-- UPDATE ceap_stg SET sgpartido = 'UNIÃO' WHERE trim(sgpartido) = 'PSL';
+-- UPDATE ceap_stg SET sgpartido = 'UNIÃO' WHERE trim(sgpartido) = 'DEM';
+UPDATE ceap_stg SET sgpartido = 'REPUBLICANOS' WHERE trim(sgpartido) = 'PRB';
+UPDATE ceap_stg SET sgpartido = 'PODEMOS' WHERE trim(sgpartido) = 'PODE';
 
-DELETE FROM ceap_stg WHERE nucarteiraparlamentar::integer = 0;
-DELETE FROM ceap_stg WHERE numano::integer < 2014;
+DELETE FROM ceap_stg WHERE numano::integer < 2013 OR numano::integer > 2021;
 
-INSERT INTO ceap(uf, ano, mes, carteira, legislatura, partido, tipo, valor, iddeputado, emissao)
-SELECT sguf, numano::integer, nummes::integer, nucarteiraparlamentar::integer, codlegislatura::integer, sgpartido, txtdescricao, vlrdocumento::numeric - vlrglosa::numeric - vlrrestituicao::numeric, idecadastro::integer, CASE WHEN datemissao = '' OR datemissao IS NULL THEN NULL ELSE datemissao::date END
+INSERT INTO ceap(uf, ano, mes, legislatura, partido, tipo, valor, iddeputado)
+SELECT sguf, numano::integer, nummes::integer, codlegislatura::integer, sgpartido, txtdescricao, vlrdocumento::numeric - vlrglosa::numeric - vlrrestituicao::numeric, idecadastro::integer
 FROM ceap_stg;
-
-UPDATE ceap SET emissao = make_date(ano, mes, 1) WHERE emissao IS NULL;
 
 INSERT INTO capitais(uf, distancia)SELECT uf, distancia::integer FROM capitais_stg;
 
@@ -215,11 +175,16 @@ UPDATE representatividade_stg SET partido = 'AGIR' WHERE trim(partido) = 'PTC';
 --IMPORTANTE
 
 INSERT INTO representatividade(partido, deputados, ano)SELECT trim(partido), SUM(deputados), ano FROM representatividade_stg GROUP BY 1, 3;
+UPDATE tempo_mandato_stg SET nome = UPPER(nome);
+UPDATE tempo_mandato_stg SET nome = 'MAJOR VITOR HUGO' WHERE trim(nome) = 'VITOR HUGO';
+UPDATE tempo_mandato_stg SET nome = 'ALENCAR SANTANA' WHERE trim(nome) = 'ALENCAR SANTANA BRAGA';
+UPDATE tempo_mandato_stg SET nome = 'DOUTOR LUIZINHO' WHERE trim(nome) = 'DR. LUIZ ANTONIO TEIXEIRA JR.';
+UPDATE tempo_mandato_stg SET nome = 'CAPITÃO DERRITE' WHERE trim(nome) = 'GUILHERME DERRITE';
+UPDATE tempo_mandato_stg SET nome = 'PAULINHO DA FORÇA' WHERE trim(nome) = 'PAULO PEREIRA DA SILVA';
+UPDATE tempo_mandato_stg SET nome = 'MAJOR VITOR HUGO' WHERE trim(nome) = 'RENATO QUEIROZ';
 
-UPDATE tempo_mandato_stg SET carteira = 443 WHERE nome = 'Aline Sleutjes' AND legislatura = '56';
-
-INSERT INTO tempo_mandato(carteira, legislatura)
-SELECT carteira::integer, legislatura::integer FROM tempo_mandato_stg WHERE (legislatura = '54' AND dias = '1460') OR (legislatura = '55' AND dias = '1460') OR (legislatura = '56' AND dias = '1221');
+INSERT INTO tempo_mandato(iddeputado, legislatura)
+SELECT DISTINCT bar.iddeputado, foo.legislatura FROM (select legislatura::integer, trim(UPPER(nome)) AS nome, dias::integer from tempo_mandato_stg) foo JOIN (select idlegislatura::integer AS legislatura, trim(UPPER(nome)) AS nome, iddeputado from deputado_stg) bar USING(nome, legislatura) WHERE (legislatura IN(54,55) AND dias::integer = 1460) OR (legislatura = 56 AND dias = 1221);
 
 INSERT INTO cota_uf(uf, cota, pos54)SELECT uf, replace(cota, ',', '.')::numeric, pos54 FROM cota_uf_stg;
 
@@ -241,19 +206,20 @@ UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PEN';
 UPDATE deputado_stg SET siglapartido = 'DC' WHERE siglapartido = 'PSDC';
 UPDATE deputado_stg SET siglapartido = 'AVANTE' WHERE siglapartido = 'PTdoB';
 UPDATE deputado_stg SET siglapartido = 'AGIR' WHERE siglapartido = 'PTC';
-
 UPDATE deputado_stg SET siglapartido = 'PP' WHERE siglapartido = 'PP**';
 UPDATE deputado_stg SET siglapartido = 'MDB' WHERE siglapartido = 'PMDB';
 
 INSERT INTO deputado SELECT * FROM deputado_stg;
 UPDATE deputado SET siglapartido = trim(siglapartido);
 
-UPDATE tempo_mandato AS tm SET iddeputado = d.iddeputado FROM deputado d WHERE tm.legislatura = d.legislatura AND tm.carteira = d.carteira;
-
-INSERT INTO dados(ano, mes, carteira, legislatura, anolegislatura, uf, partido, tipo, eleitores, distancia, vagas, representatividade, valor)
+INSERT INTO dados(ano, mes, legislatura, anolegislatura, uf, partido, tipo, eleitores, distancia, vagas, representatividade, valor)
 SELECT 
-    c.ano, c.mes, c.carteira, c.legislatura, 
-    CASE WHEN c.ano = 2015 THEN '1' 
+    c.ano, c.mes, c.legislatura, 
+    CASE 
+        WHEN c.ano = 2013 THEN 3
+        WHEN c.ano = 2014 THEN 4 
+        WHEN c.ano = 2015 AND legislatura = 54 THEN 5 
+        WHEN c.ano = 2015 THEN '1' 
         WHEN c.ano = 2016 THEN '2' 
         WHEN c.ano = 2017 THEN '3' 
         WHEN c.ano = 2018 THEN '4' 
@@ -263,10 +229,10 @@ SELECT
         WHEN c.ano = 2022 THEN '4' END, 
     c.uf, c.partido, c.tipo, e.total, ca.distancia, v.vagas, COALESCE(r.deputados, 0), c.valor AS valor
 FROM eleitor e 
-JOIN ceap c ON e.uf = c.uf AND ((e.ano = 2014 AND c.legislatura = 55) OR (e.ano = 2018 AND c.legislatura = 56))
+JOIN ceap c ON e.uf = c.uf AND ((e.ano = 2010 AND c.legislatura = 54) OR (e.ano = 2014 AND c.legislatura = 55) OR (e.ano = 2018 AND c.legislatura = 56))
 JOIN capitais ca ON e.uf = ca.uf
 JOIN vagas v ON e.uf = v.uf
-LEFT JOIN representatividade r ON r.partido = c.partido AND ((r.ano = 2014 AND c.legislatura = 55) OR (r.ano = 2018 AND c.legislatura = 56))
+LEFT JOIN representatividade r ON r.partido = c.partido AND ((r.ano = 2010 AND c.legislatura = 54) OR (r.ano = 2014 AND c.legislatura = 55) OR (r.ano = 2018 AND c.legislatura = 56))
 WHERE valor > 0;
 
 -- SELECT SUM(valor/vagas), SUM(valor/e.total), c.ano, c.uf, tipo 
@@ -280,14 +246,15 @@ WHERE valor > 0;
 INSERT INTO dados_v2(ano, legislatura, anolegislatura, uf, tipo, eleitores, distancia, vagas, valor)
 SELECT 
     c.ano, c.legislatura, 
-    CASE WHEN c.ano = 2014 THEN '4' 
-        WHEN c.ano = 2015 THEN '1' 
-        WHEN c.ano = 2016 THEN '2' 
-        WHEN c.ano = 2017 THEN '3' 
-        WHEN c.ano = 2018 THEN '4' 
-        WHEN c.ano = 2019 THEN '1' 
-        WHEN c.ano = 2020 THEN '2' 
-        WHEN c.ano = 2021 THEN '3' END, 
+        CASE
+        WHEN c.ano = 2013 THEN 3
+        WHEN c.ano = 2014 THEN 4 
+        WHEN c.ano = 2015 THEN 1 
+        WHEN c.ano = 2016 THEN 2 
+        WHEN c.ano = 2017 THEN 3 
+        WHEN c.ano = 2018 THEN 4 
+        WHEN c.ano = 2019 THEN 1 
+        WHEN c.ano = 2020 THEN 2 END, 
     c.uf, c.tipo, e.total, ca.distancia, v.vagas, c.valor AS valor
 FROM eleitor e 
 JOIN ceap c ON e.uf = c.uf AND ((e.ano = 2010 AND c.legislatura = 54) OR (e.ano = 2014 AND c.legislatura = 55) OR (e.ano = 2018 AND c.legislatura = 56))
@@ -300,6 +267,7 @@ INSERT INTO dados_v3(iddeputado, ano, mes, legislatura, meseslegislatura, anoleg
 SELECT 
     c.iddeputado, c.ano, c.mes, c.legislatura,
     CASE 
+        WHEN c.ano = 2013 THEN 12 
         WHEN c.ano = 2014 THEN 12 
         WHEN c.ano = 2015 AND c.legislatura = 54 THEN 1
         WHEN c.ano = 2015 THEN 11 
@@ -446,7 +414,7 @@ JOIN capitais ca ON e.uf = ca.uf
 JOIN vagas v ON e.uf = v.uf
 JOIN cota_uf cuf ON cuf.uf = c.uf AND ((c.legislatura = 54 AND NOT cuf.pos54) OR (c.legislatura > 54 AND cuf.pos54))
 LEFT JOIN representatividade r ON trim(r.partido) = trim(c.partido) AND ((r.ano = 2014 AND c.legislatura = 55) OR (r.ano = 2018 AND c.legislatura = 56) OR (r.ano = 2010 AND c.legislatura = 54));
-where NOT (iddeputado = 74043 and mes = 2 and ano = 2015);
+--where NOT (iddeputado = 74043 and mes = 2 and ano = 2015);
 
 DROP TABLE IF EXISTS contagem_v3;
 CREATE TABLE IF NOT EXISTS contagem_v3(
@@ -467,7 +435,7 @@ contagem integer
 );
 
 INSERT INTO contagem_v3(anolegislatura, legislatura, partido, uf, tipo, iddeputado, ano, mes, distancia, eleitores, vagas, representatividade, valor, contagem)
-select anolegislatura, legislatura, c.partido, uf, tipo, iddeputado, ano, mes, distancia, eleitores, vagas, r.deputados, valor, contagem 
+select anolegislatura, legislatura, c.partido, uf, tipo, iddeputado, c.ano, c.mes, distancia, eleitores, vagas, r.deputados, valor, contagem 
 from (
 	select count(*) AS contagem, sum(valor) AS valor, anolegislatura, legislatura, partido, uf, tipo, iddeputado, ano, mes, MAX(distancia) AS distancia, MAX(eleitores) AS eleitores, MAX(vagas) AS vagas, MAX(cota) AS cota
 	FROM dados_v3
