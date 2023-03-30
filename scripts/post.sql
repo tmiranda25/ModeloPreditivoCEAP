@@ -8,66 +8,71 @@
  * Created: 16 de mai. de 2022
  */
 begin;
+
+--CONVERTO ANO EM LEGISLATURA
+ALTER TABLE representatividade_stg ADD COLUMN legislatura integer;
+UPDATE representatividade_stg SET legislatura = CASE WHEN ano = 2018 THEN 56 ELSE 55 END;
+ALTER TABLE representatividade_stg DROP COLUMN ano;
+
+--INSIRO A REPRESENTATIVIDADE FALTANTE
+INSERT INTO representatividade_stg(partido, deputados, legislatura)VALUES('UNIÃO', 52, 56);
+
+--ATUALIZO OS PARTIDOS QUE MUDARAM DE NOME
+UPDATE representatividade_stg SET partido = 'SOLIDARIEDADE' WHERE trim(partido) = 'SD';
+UPDATE representatividade_stg SET partido = 'CIDADANIA' WHERE trim(partido) = 'PPS';
+UPDATE representatividade_stg SET partido = 'PATRIOTA' WHERE trim(partido) = 'PATRI';
+UPDATE representatividade_stg SET partido = 'PATRIOTA' WHERE trim(partido) = 'PRP';
+UPDATE representatividade_stg SET partido = 'REPUBLICANOS' WHERE trim(partido) = 'PRB';
+UPDATE representatividade_stg SET partido = 'MDB' WHERE trim(partido) = 'PMDB';
+UPDATE representatividade_stg SET partido = 'PODEMOS' WHERE trim(partido) = 'PHS';
+UPDATE representatividade_stg SET partido = 'PCdoB' WHERE trim(partido) = 'PC do B';
+UPDATE representatividade_stg SET partido = 'PCdoB' WHERE trim(partido) = 'PPL';
+--UPDATE representatividade_stg SET partido = 'UNIÃO' WHERE trim(partido) = 'PSL';
+--UPDATE representatividade_stg SET partido = 'UNIÃO' WHERE trim(partido) = 'DEM';
+UPDATE representatividade_stg SET partido = 'REPUBLICANOS' WHERE trim(partido) = 'PRB';
+UPDATE representatividade_stg SET partido = 'PODEMOS' WHERE trim(partido) = 'PODE';
+UPDATE representatividade_stg SET partido = 'PODEMOS' WHERE trim(partido) = 'PTN';
+UPDATE representatividade_stg SET partido = 'PATRIOTA' WHERE trim(partido) = 'PEN';
+UPDATE representatividade_stg SET partido = 'DC' WHERE trim(partido) = 'PSDC';
+UPDATE representatividade_stg SET partido = 'AVANTE' WHERE trim(partido) = 'PTdoB';
+--UPDATE representatividade_stg SET partido = 'AVANTE' WHERE trim(partido) = 'PT do B';
+UPDATE representatividade_stg SET partido = 'AGIR' WHERE trim(partido) = 'PTC';
+UPDATE representatividade_stg SET partido = 'PL' WHERE trim(partido) = 'PR';
+UPDATE representatividade_stg SET partido = trim(partido);
+
+--REMOVO LEGISLATURA ANTERIOR E POSTERIOR
+DELETE FROM ceap_stg WHERE codlegislatura IN('54', '57');
+
+--ATUALIZO NÚMEROS COM VALORES VAZIOS
+UPDATE ceap_stg SET vlrdocumento = 0 WHERE vlrdocumento = '';
+UPDATE ceap_stg SET vlrglosa = 0 WHERE vlrglosa = '';
+UPDATE ceap_stg SET vlrrestituicao = 0 WHERE vlrrestituicao = '';
+
+--ATUALIZO PARTIDOS
+UPDATE ceap_stg SET sgpartido = 'SOLIDARIEDADE' WHERE trim(sgpartido) = 'SDD';
+UPDATE ceap_stg SET sgpartido = 'PATRIOTA' WHERE trim(sgpartido) = 'PATRI';
+UPDATE ceap_stg SET sgpartido = 'MDB' WHERE trim(sgpartido) = 'PMDB';
+UPDATE ceap_stg SET sgpartido = 'PODEMOS' WHERE trim(sgpartido) = 'PHS';
+UPDATE ceap_stg SET sgpartido = 'PP' WHERE trim(sgpartido) = 'PP**';
+UPDATE ceap_stg SET sgpartido = 'PCdoB' WHERE trim(sgpartido) = 'PPL';
+UPDATE ceap_stg SET sgpartido = 'REPUBLICANOS' WHERE trim(sgpartido) = 'PRB';
+UPDATE ceap_stg SET sgpartido = 'PODEMOS' WHERE trim(sgpartido) = 'PODE';
+UPDATE ceap_stg SET sgpartido = 'CIDADANIA' WHERE trim(sgpartido) = 'PPS';
+UPDATE ceap_stg SET sgpartido = 'AVANTE' WHERE trim(sgpartido) = 'PTdoB';
+UPDATE ceap_stg SET sgpartido = 'PL' WHERE trim(sgpartido) = 'PR';
+
+--CONSIDRO AS PASSAGENS AÉREAS SOMENTE UM GRUPO
+UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - REEMBOLSO';
+UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - RPA';
+UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - SIGEPA';
+
+--REMOVO O ÚNICO REGISTRO DO TIPO
+DELETE FROM ceap_stg WHERE txtdescricao = 'AQUISIÇÃO DE TOKENS E CERTIFICADOS DIGITAIS';
+
 DROP TABLE IF EXISTS dados;
 CREATE TABLE dados(
-ano integer,
-mes integer,
-legislatura integer,
-anolegislatura text,
-uf text,
-partido text,
-tipo text,
-eleitores integer,
-representatividade integer,
-distancia integer,
-vagas integer,
-valor numeric(20,2)
-);
-
-DROP TABLE IF EXISTS dados_v2;
-CREATE TABLE dados_v2(
-ano integer,
-legislatura integer,
-anolegislatura text,
-uf text,
-tipo text,
-eleitores integer,
-distancia integer,
-vagas integer,
-valor numeric(20,2)
-);
-
-DROP TABLE IF EXISTS dados_v3;
-CREATE TABLE dados_v3(
-iddeputado integer,
-partido text,
-ano integer,
-mes integer,
-legislatura integer,
-meseslegislatura integer, 
-cotalegislatura numeric(20,2),
-anolegislatura integer,
-uf text,
-tipo text,
-eleitores integer,
-distancia integer,
-vagas integer,
-valor numeric(20,2),
-cota numeric(20,2)
-);
-
-DROP TABLE IF EXISTS eleitor;
-CREATE TABLE eleitor(
 id serial primary key,
-ano integer,
-uf text,
-total integer
-);
-
-DROP TABLE IF EXISTS ceap;
-CREATE TABLE ceap(
-id serial primary key,
-iddeputado integer,
+carteira integer,
 emissao date,
 ano integer,
 mes integer,
@@ -75,7 +80,102 @@ legislatura integer,
 uf text,
 partido text,
 tipo text,
+representatividade integer,
+distancia integer,
 valor numeric(20,2)
+);
+
+INSERT INTO dados(uf, ano, mes, legislatura, partido, tipo, valor, carteira, representatividade)
+SELECT 
+FROM (
+    SELECT sguf AS uf, numano::integer AS ano, nummes::integer AS mes, codlegislatura::integer AS legislatura, sgpartido AS partido, txtdescricao, vlrdocumento::numeric - vlrglosa::numeric - vlrrestituicao::numeric, nucarteiraparlamentar::integer, r.deputados
+FROM ceap_stg c
+)
+JOIN (SELECT DISTINCT carteira, legislatura FROM tempo_mandato_stg WHERE (legislatura = '55' AND dias::integer = '1460') OR (legislatura = '56' AND dias = '1461')) tm
+ON c.nucarteiraparlamentar = tm.carteira AND c.codlegislatura = tm.legislatura
+LEFT JOIN representatividade_stg r
+ON c.legislatura = r.legislatura AND  c.partido = r.partido
+WHERE nucarteiraparlamentar <> '';
+
+
+
+
+-- UPDATE deputado_stg SET siglapartido = 'SOLIDARIEDADE' WHERE siglapartido = 'SD';
+-- UPDATE deputado_stg SET siglapartido = 'CIDADANIA' WHERE siglapartido = 'PPS';
+-- UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PATRI';
+-- UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PRP';
+-- UPDATE deputado_stg SET siglapartido = 'REPUBLICANOS' WHERE siglapartido = 'PRB';
+-- UPDATE deputado_stg SET siglapartido = 'MDB' WHERE siglapartido = 'PMDB';
+-- UPDATE deputado_stg SET siglapartido = 'PODEMOS' WHERE siglapartido = 'PHS';
+-- UPDATE deputado_stg SET siglapartido = 'PCdoB' WHERE siglapartido = 'PC do B';
+-- UPDATE deputado_stg SET siglapartido = 'PCdoB' WHERE siglapartido = 'PPL';
+-- --UPDATE deputado_stg SET siglapartido = 'UNIÃO' WHERE siglapartido = 'PSL';
+-- --UPDATE deputado_stg SET siglapartido = 'UNIÃO' WHERE siglapartido = 'DEM';
+-- UPDATE deputado_stg SET siglapartido = 'REPUBLICANOS' WHERE siglapartido = 'PRB';
+-- UPDATE deputado_stg SET siglapartido = 'PODEMOS' WHERE siglapartido = 'PODE';
+-- UPDATE deputado_stg SET siglapartido = 'PODEMOS' WHERE siglapartido = 'PTN';
+-- UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PEN';
+-- UPDATE deputado_stg SET siglapartido = 'DC' WHERE siglapartido = 'PSDC';
+-- UPDATE deputado_stg SET siglapartido = 'AVANTE' WHERE siglapartido = 'PTdoB';
+-- UPDATE deputado_stg SET siglapartido = 'AGIR' WHERE siglapartido = 'PTC';
+-- UPDATE deputado_stg SET siglapartido = 'PP' WHERE siglapartido = 'PP**';
+-- UPDATE deputado_stg SET siglapartido = 'MDB' WHERE siglapartido = 'PMDB';
+
+
+-- DROP TABLE IF EXISTS dados;
+-- CREATE TABLE dados(
+-- ano integer,
+-- mes integer,
+-- legislatura integer,
+-- anolegislatura text,
+-- uf text,
+-- partido text,
+-- tipo text,
+-- eleitores integer,
+-- representatividade integer,
+-- distancia integer,
+-- vagas integer,
+-- valor numeric(20,2)
+-- );
+-- 
+-- DROP TABLE IF EXISTS dados_v2;
+-- CREATE TABLE dados_v2(
+-- ano integer,
+-- legislatura integer,
+-- anolegislatura text,
+-- uf text,
+-- tipo text,
+-- eleitores integer,
+-- distancia integer,
+-- vagas integer,
+-- valor numeric(20,2)
+-- );
+-- 
+-- DROP TABLE IF EXISTS dados_v3;
+-- CREATE TABLE dados_v3(
+-- iddeputado integer,
+-- partido text,
+-- ano integer,
+-- mes integer,
+-- legislatura integer,
+-- meseslegislatura integer, 
+-- cotalegislatura numeric(20,2),
+-- anolegislatura integer,
+-- uf text,
+-- tipo text,
+-- eleitores integer,
+-- distancia integer,
+-- vagas integer,
+-- valor numeric(20,2),
+-- cota numeric(20,2)
+-- );
+
+DROP TABLE IF EXISTS eleitor;
+CREATE TABLE eleitor(
+id serial primary key,
+ano integer,
+uf text,
+total integer
 );
 
 DROP TABLE IF EXISTS capitais;
@@ -102,7 +202,7 @@ ano integer
 
 DROP TABLE IF EXISTS tempo_mandato;
 CREATE TABLE tempo_mandato(
-iddeputado integer,
+carteira integer,
 legislatura integer
 );
 
@@ -128,86 +228,27 @@ INSERT INTO eleitor(uf, ano, total)
 SELECT uf, ano::integer, eleitores::integer
 FROM eleitor_stg;
 
-UPDATE ceap_stg SET vlrdocumento = 0 WHERE vlrdocumento = '';
-UPDATE ceap_stg SET vlrglosa = 0 WHERE vlrglosa = '';
-UPDATE ceap_stg SET vlrrestituicao = 0 WHERE vlrrestituicao = '';
-
-UPDATE ceap_stg SET sgpartido = 'SOLIDARIEDADE' WHERE trim(sgpartido) = 'SDD';
-UPDATE ceap_stg SET sgpartido = 'PATRIOTA' WHERE trim(sgpartido) = 'PATRI';
-UPDATE ceap_stg SET sgpartido = 'MDB' WHERE trim(sgpartido) = 'PMDB';
-UPDATE ceap_stg SET sgpartido = 'PODEMOS' WHERE trim(sgpartido) = 'PHS' AND codlegislatura = '56';
-UPDATE ceap_stg SET sgpartido = 'PP' WHERE trim(sgpartido) = 'PP**';
-UPDATE ceap_stg SET sgpartido = 'PCdoB' WHERE trim(sgpartido) = 'PPL' AND codlegislatura = '56';
--- UPDATE ceap_stg SET sgpartido = 'UNIÃO' WHERE trim(sgpartido) = 'PSL';
--- UPDATE ceap_stg SET sgpartido = 'UNIÃO' WHERE trim(sgpartido) = 'DEM';
-UPDATE ceap_stg SET sgpartido = 'REPUBLICANOS' WHERE trim(sgpartido) = 'PRB';
-UPDATE ceap_stg SET sgpartido = 'PODEMOS' WHERE trim(sgpartido) = 'PODE';
-
-DELETE FROM ceap_stg WHERE numano::integer < 2013 OR numano::integer > 2021;
-
-INSERT INTO ceap(uf, ano, mes, legislatura, partido, tipo, valor, iddeputado)
-SELECT sguf, numano::integer, nummes::integer, codlegislatura::integer, sgpartido, txtdescricao, vlrdocumento::numeric - vlrglosa::numeric - vlrrestituicao::numeric, idecadastro::integer
-FROM ceap_stg;
-
 INSERT INTO capitais(uf, distancia)SELECT uf, distancia::integer FROM capitais_stg;
 
 INSERT INTO vagas(uf, vagas)SELECT uf, vagas::integer FROM vagas_stg;
 
-UPDATE representatividade_stg SET partido = 'SOLIDARIEDADE' WHERE trim(partido) = 'SD';
-UPDATE representatividade_stg SET partido = 'CIDADANIA' WHERE trim(partido) = 'PPS';
-UPDATE representatividade_stg SET partido = 'PATRIOTA' WHERE trim(partido) = 'PATRI';
-UPDATE representatividade_stg SET partido = 'PATRIOTA' WHERE trim(partido) = 'PRP';
-UPDATE representatividade_stg SET partido = 'REPUBLICANOS' WHERE trim(partido) = 'PRB';
-UPDATE representatividade_stg SET partido = 'MDB' WHERE trim(partido) = 'PMDB';
-UPDATE representatividade_stg SET partido = 'PODEMOS' WHERE trim(partido) = 'PHS';
-UPDATE representatividade_stg SET partido = 'PCdoB' WHERE trim(partido) = 'PC do B';
-UPDATE representatividade_stg SET partido = 'PCdoB' WHERE trim(partido) = 'PPL';
---UPDATE representatividade_stg SET partido = 'UNIÃO' WHERE trim(partido) = 'PSL';
---UPDATE representatividade_stg SET partido = 'UNIÃO' WHERE trim(partido) = 'DEM';
-UPDATE representatividade_stg SET partido = 'REPUBLICANOS' WHERE trim(partido) = 'PRB';
-UPDATE representatividade_stg SET partido = 'PODEMOS' WHERE trim(partido) = 'PODE';
-UPDATE representatividade_stg SET partido = 'PODEMOS' WHERE trim(partido) = 'PTN';
-UPDATE representatividade_stg SET partido = 'PATRIOTA' WHERE trim(partido) = 'PEN';
-UPDATE representatividade_stg SET partido = 'DC' WHERE trim(partido) = 'PSDC';
-UPDATE representatividade_stg SET partido = 'AVANTE' WHERE trim(partido) = 'PTdoB';
-UPDATE representatividade_stg SET partido = 'AVANTE' WHERE trim(partido) = 'PT do B';
-UPDATE representatividade_stg SET partido = 'AGIR' WHERE trim(partido) = 'PTC';
+
 --IMPORTANTE
 
-INSERT INTO representatividade(partido, deputados, ano)SELECT trim(partido), SUM(deputados), ano FROM representatividade_stg GROUP BY 1, 3;
-UPDATE tempo_mandato_stg SET nome = UPPER(nome);
-UPDATE tempo_mandato_stg SET nome = 'MAJOR VITOR HUGO' WHERE trim(nome) = 'VITOR HUGO';
-UPDATE tempo_mandato_stg SET nome = 'ALENCAR SANTANA' WHERE trim(nome) = 'ALENCAR SANTANA BRAGA';
-UPDATE tempo_mandato_stg SET nome = 'DOUTOR LUIZINHO' WHERE trim(nome) = 'DR. LUIZ ANTONIO TEIXEIRA JR.';
-UPDATE tempo_mandato_stg SET nome = 'CAPITÃO DERRITE' WHERE trim(nome) = 'GUILHERME DERRITE';
-UPDATE tempo_mandato_stg SET nome = 'PAULINHO DA FORÇA' WHERE trim(nome) = 'PAULO PEREIRA DA SILVA';
-UPDATE tempo_mandato_stg SET nome = 'MAJOR VITOR HUGO' WHERE trim(nome) = 'RENATO QUEIROZ';
+--NÃO USAR A REPRESENTATIVIDADE
+-- INSERT INTO representatividade(partido, deputados, ano)SELECT trim(partido), SUM(deputados), ano FROM representatividade_stg GROUP BY 1, 3;
+-- UPDATE tempo_mandato_stg SET nome = UPPER(nome);
+-- UPDATE tempo_mandato_stg SET nome = 'MAJOR VITOR HUGO' WHERE trim(nome) = 'VITOR HUGO';
+-- UPDATE tempo_mandato_stg SET nome = 'ALENCAR SANTANA' WHERE trim(nome) = 'ALENCAR SANTANA BRAGA';
+-- UPDATE tempo_mandato_stg SET nome = 'DOUTOR LUIZINHO' WHERE trim(nome) = 'DR. LUIZ ANTONIO TEIXEIRA JR.';
+-- UPDATE tempo_mandato_stg SET nome = 'CAPITÃO DERRITE' WHERE trim(nome) = 'GUILHERME DERRITE';
+-- UPDATE tempo_mandato_stg SET nome = 'PAULINHO DA FORÇA' WHERE trim(nome) = 'PAULO PEREIRA DA SILVA';
+-- UPDATE tempo_mandato_stg SET nome = 'MAJOR VITOR HUGO' WHERE trim(nome) = 'RENATO QUEIROZ';
 
-INSERT INTO tempo_mandato(iddeputado, legislatura)
-SELECT DISTINCT bar.iddeputado, foo.legislatura FROM (select legislatura::integer, trim(UPPER(nome)) AS nome, dias::integer from tempo_mandato_stg) foo JOIN (select idlegislatura::integer AS legislatura, trim(UPPER(nome)) AS nome, iddeputado from deputado_stg) bar USING(nome, legislatura) WHERE (legislatura IN(54,55) AND dias::integer = 1460) OR (legislatura = 56 AND dias = 1221);
+INSERT INTO tempo_mandato(carteira, legislatura)
+SELECT DISTINCT iddeputado, legislatura FROM tempo_mandato_stg WHERE (legislatura IN(54,55) AND dias::integer = 1460) OR (legislatura = 56 AND dias = 1461);
 
-INSERT INTO cota_uf(uf, cota, pos54)SELECT uf, replace(cota, ',', '.')::numeric, pos54 FROM cota_uf_stg;
-
-UPDATE deputado_stg SET siglapartido = 'SOLIDARIEDADE' WHERE siglapartido = 'SD';
-UPDATE deputado_stg SET siglapartido = 'CIDADANIA' WHERE siglapartido = 'PPS';
-UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PATRI';
-UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PRP';
-UPDATE deputado_stg SET siglapartido = 'REPUBLICANOS' WHERE siglapartido = 'PRB';
-UPDATE deputado_stg SET siglapartido = 'MDB' WHERE siglapartido = 'PMDB';
-UPDATE deputado_stg SET siglapartido = 'PODEMOS' WHERE siglapartido = 'PHS';
-UPDATE deputado_stg SET siglapartido = 'PCdoB' WHERE siglapartido = 'PC do B';
-UPDATE deputado_stg SET siglapartido = 'PCdoB' WHERE siglapartido = 'PPL';
---UPDATE deputado_stg SET siglapartido = 'UNIÃO' WHERE siglapartido = 'PSL';
---UPDATE deputado_stg SET siglapartido = 'UNIÃO' WHERE siglapartido = 'DEM';
-UPDATE deputado_stg SET siglapartido = 'REPUBLICANOS' WHERE siglapartido = 'PRB';
-UPDATE deputado_stg SET siglapartido = 'PODEMOS' WHERE siglapartido = 'PODE';
-UPDATE deputado_stg SET siglapartido = 'PODEMOS' WHERE siglapartido = 'PTN';
-UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PEN';
-UPDATE deputado_stg SET siglapartido = 'DC' WHERE siglapartido = 'PSDC';
-UPDATE deputado_stg SET siglapartido = 'AVANTE' WHERE siglapartido = 'PTdoB';
-UPDATE deputado_stg SET siglapartido = 'AGIR' WHERE siglapartido = 'PTC';
-UPDATE deputado_stg SET siglapartido = 'PP' WHERE siglapartido = 'PP**';
-UPDATE deputado_stg SET siglapartido = 'MDB' WHERE siglapartido = 'PMDB';
+INSERT INTO cota_uf(uf, cota)SELECT uf, replace(cota, ',', '.')::numeric FROM cota_uf_stg;
 
 INSERT INTO deputado SELECT * FROM deputado_stg;
 UPDATE deputado SET siglapartido = trim(siglapartido);
@@ -216,17 +257,16 @@ INSERT INTO dados(ano, mes, legislatura, anolegislatura, uf, partido, tipo, elei
 SELECT 
     c.ano, c.mes, c.legislatura, 
     CASE 
-        WHEN c.ano = 2013 THEN 3
-        WHEN c.ano = 2014 THEN 4 
-        WHEN c.ano = 2015 AND legislatura = 54 THEN 5 
         WHEN c.ano = 2015 THEN '1' 
         WHEN c.ano = 2016 THEN '2' 
         WHEN c.ano = 2017 THEN '3' 
         WHEN c.ano = 2018 THEN '4' 
+        WHEN c.ano = 2019 AND legislatura = 55 THEN '5', 
         WHEN c.ano = 2019 THEN '1' 
         WHEN c.ano = 2020 THEN '2' 
         WHEN c.ano = 2021 THEN '3' 
-        WHEN c.ano = 2022 THEN '4' END, 
+        WHEN c.ano = 2022 THEN '4'
+        WHEN c.ano = 2023 AND legislatura = 56 THEN '5'  END, 
     c.uf, c.partido, c.tipo, e.total, ca.distancia, v.vagas, COALESCE(r.deputados, 0), c.valor AS valor
 FROM eleitor e 
 JOIN ceap c ON e.uf = c.uf AND ((e.ano = 2010 AND c.legislatura = 54) OR (e.ano = 2014 AND c.legislatura = 55) OR (e.ano = 2018 AND c.legislatura = 56))

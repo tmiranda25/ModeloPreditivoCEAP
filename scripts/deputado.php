@@ -1,6 +1,6 @@
 <?php
 
-foreach([54, 55, 56] AS $legislatura){
+foreach([55, 56] AS $legislatura){
     
     try{
         

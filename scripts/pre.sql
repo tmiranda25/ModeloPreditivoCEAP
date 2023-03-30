@@ -76,7 +76,7 @@ vagas text
 DROP TABLE IF EXISTS tempo_mandato_stg;
 create table tempo_mandato_stg(
 legislatura text,
-nome text,
+iddeputado text,
 dias text
 );
 
