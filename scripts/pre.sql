@@ -83,8 +83,7 @@ dias text
 DROP TABLE IF EXISTS cota_uf_stg;
 create table cota_uf_stg(
 uf text,
-cota text,
-pos54 bool
+cota text
 );
 
 DROP TABLE IF EXISTS deputado_stg;

@@ -14,7 +14,7 @@ ALTER TABLE representatividade_stg ADD COLUMN legislatura integer;
 UPDATE representatividade_stg SET legislatura = CASE WHEN ano = 2018 THEN 56 ELSE 55 END;
 ALTER TABLE representatividade_stg DROP COLUMN ano;
 
---INSIRO A REPRESENTATIVIDADE FALTANTE
+--INSIRO A REPRESENTATIVIDADE FALTANTE DA FUSÃO
 INSERT INTO representatividade_stg(partido, deputados, legislatura)VALUES('UNIÃO', 52, 56);
 
 --ATUALIZO OS PARTIDOS QUE MUDARAM DE NOME
@@ -73,7 +73,6 @@ DROP TABLE IF EXISTS dados;
 CREATE TABLE dados(
 id serial primary key,
 carteira integer,
-emissao date,
 ano integer,
 mes integer,
 legislatura integer,
@@ -82,22 +81,78 @@ partido text,
 tipo text,
 representatividade integer,
 distancia integer,
+vagas integer, 
+eleitores integer,
+cota numeric(20,2),
 valor numeric(20,2)
 );
 
-INSERT INTO dados(uf, ano, mes, legislatura, partido, tipo, valor, carteira, representatividade)
-SELECT 
+INSERT INTO dados(uf, ano, mes, legislatura, partido, tipo, valor, carteira, representatividade, distancia, vagas, eleitores, cota)
+SELECT c.uf, c.ano, c.mes, c.datemissao, c.legislatura, c.partido, c.tipo, c.valor, c.carteira, r.deputados, ca.distancia::integer, v.vagas::integer, e.eleitores::integer, replace(co.cota, ',', '.')::numeric
 FROM (
-    SELECT sguf AS uf, numano::integer AS ano, nummes::integer AS mes, codlegislatura::integer AS legislatura, sgpartido AS partido, txtdescricao, vlrdocumento::numeric - vlrglosa::numeric - vlrrestituicao::numeric, nucarteiraparlamentar::integer, r.deputados
-FROM ceap_stg c
-)
-JOIN (SELECT DISTINCT carteira, legislatura FROM tempo_mandato_stg WHERE (legislatura = '55' AND dias::integer = '1460') OR (legislatura = '56' AND dias = '1461')) tm
-ON c.nucarteiraparlamentar = tm.carteira AND c.codlegislatura = tm.legislatura
-LEFT JOIN representatividade_stg r
-ON c.legislatura = r.legislatura AND  c.partido = r.partido
-WHERE nucarteiraparlamentar <> '';
+    SELECT sguf AS uf, numano::integer AS ano, nummes::integer AS mes, codlegislatura::integer AS legislatura, sgpartido AS partido, txtdescricao AS tipo, vlrdocumento::numeric - vlrglosa::numeric - vlrrestituicao::numeric AS valor, nucarteiraparlamentar::integer AS carteira
+    FROM ceap_stg
+    WHERE nucarteiraparlamentar <> ''
+) c
+JOIN (SELECT DISTINCT carteira::integer, legislatura::integer FROM tempo_mandato_stg WHERE (legislatura = '55' AND dias::integer = '1460') OR (legislatura = '56' AND dias = '1461')) tm ON c.carteira = tm.carteira AND c.legislatura = tm.legislatura
+JOIN capitais_stg ca ON c.uf = ca.uf
+JOIN vagas_stg v ON c.uf = v.uf
+JOIN eleitor_stg e ON c.uf = e.uf AND ((e.ano = '2014' AND c.legislatura = 55) OR (e.ano = '2018' AND c.legislatura = 56))
+JOIN cota_uf_stg co ON c.uf = co.uf
+LEFT JOIN (
+    select partido, legislatura::integer, sum(deputados) AS deputados 
+    from representatividade_stg 
+    group by 1, 2 
+    order by 1, 2) r ON c.legislatura = r.legislatura AND  c.partido = r.partido;
 
+DROP TABLE IF EXISTS agregado;
+CREATE TABLE agregado(
+id serial primary key,
+ano integer,
+mes integer,
+legislatura integer,
+uf text,
+partido text,
+tipo text,
+representatividade integer,
+distancia integer,
+vagas integer, 
+eleitores integer,
+cota numeric(20,2),
+valor numeric(20,2),
+quantidade integer
+);
 
+INSERT INTO agregado(uf, ano, mes, legislatura, partido, tipo, representatividade, distancia, vagas, eleitores, cota, valor, quantidade, saldo, disponivel, anolegislatura)
+SELECT c.uf, c.ano, c.mes, c.legislatura, c.partido, c.tipo, r.deputados, ca.distancia::integer, v.vagas::integer, e.eleitores::integer, replace(co.cota, ',', '.')::numeric, SUM(c.valor) AS valor, COUNT(*) AS quantidade, 
+    CASE 
+        WHEN c.ano = 2015 THEN '1' 
+        WHEN c.ano = 2016 THEN '2' 
+        WHEN c.ano = 2017 THEN '3' 
+        WHEN c.ano = 2018 THEN '4' 
+        WHEN c.ano = 2019 AND legislatura = 55 THEN '5', 
+        WHEN c.ano = 2019 THEN '1' 
+        WHEN c.ano = 2020 THEN '2' 
+        WHEN c.ano = 2021 THEN '3' 
+        WHEN c.ano = 2022 THEN '4'
+        WHEN c.ano = 2023 AND legislatura = 56 THEN '5'  END, 
+FROM (
+    SELECT sguf AS uf, numano::integer AS ano, nummes::integer AS mes, codlegislatura::integer AS legislatura, sgpartido AS partido, txtdescricao AS tipo, vlrdocumento::numeric - vlrglosa::numeric - vlrrestituicao::numeric AS valor, nucarteiraparlamentar::integer AS carteira
+    FROM ceap_stg
+    WHERE nucarteiraparlamentar <> ''
+) c
+JOIN capitais_stg ca ON c.uf = ca.uf
+JOIN vagas_stg v ON c.uf = v.uf
+JOIN eleitor_stg e ON c.uf = e.uf AND ((e.ano = '2014' AND c.legislatura = 55) OR (e.ano = '2018' AND c.legislatura = 56))
+JOIN cota_uf_stg co ON c.uf = co.uf
+LEFT JOIN (
+    select partido, legislatura::integer, sum(deputados) AS deputados 
+    from representatividade_stg 
+    group by 1, 2 
+    order by 1, 2) r ON c.legislatura = r.legislatura AND  c.partido = r.partido
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11;
+
+UPDATE agregado SET saldo = case when anolegislatura = 1 then cota*11 when anolegislatura = 5 then cota else cota*12;
 
 
 -- UPDATE deputado_stg SET siglapartido = 'SOLIDARIEDADE' WHERE siglapartido = 'SD';
