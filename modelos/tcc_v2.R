@@ -1,72 +1,105 @@
 rm(list = ls())
-source("/media/thiago/Arquivos/web/TCC/src/r/init.R")
+source("init.R")
 
 #################################################################################
 #                 PREPARANDO OS DADOS                                           #
 #################################################################################
 #executa o script do banco de dados
-if(!file.exists('./final_v2.csv')){
-  system('./database/db_v2.sh')
-}
+#if(!file.exists('./final_v2.csv')){
+#  system('./database/db_v2.sh')
+#}
 
-ceap <- read.csv("./final_v3.csv")
-ceap <- ceap %>% dplyr::select("ano", "anolegislatura", "uf", "tipo", "valor", "eleitores", "distancia", "vagas", "cota")
-ceap <- ceap %>% dplyr::filter(valor < 1000 & valor > 0)
-#retirei legislatura por ser relacionado a ano
-ceap$anolegislatura <- as.factor(ceap$anolegislatura)
+ceap <- read.csv("../dados/ceap.csv")
+#ceap <- ceap %>% dplyr::select("ano", "mes, "anolegislatura", "uf", "tipo", "partido", "valor", "eleitores", "distancia", "vagas", "cota")
+ceap <- ceap %>% dplyr::select(-one_of(c("tipo", "legislatura", "anolegislatura", "partido", "uf", "vagas", "cota", "representatividade")))
+
+#ceap$legislatura <- as.factor(ceap$legislatura)
+#ceap$anolegislatura <- as.factor(ceap$anolegislatura)
 ceap$ano <- as.factor(ceap$ano)
-ceap$iddeputado <- as.factor(ceap$iddeputado)
+#ceap$mes <- as.factor(ceap$mes)
 ceap$uf <- as.factor(ceap$uf)
-ceap$tipo <- as.factor(ceap$tipo)
-ceap$valor <- ceap$valor
-#ceap$mediaeleitor <- ceap$valor/ceap$eleitores
-#ceap$valor <- NULL
+#ceap$tipo <- as.factor(ceap$tipo)
+ceap$partido <- as.factor(ceap$partido)
 
 #################################################################################
 #                 OBSERVANDO OS DADOS CARREGADOS DO DATASET                     #
 #################################################################################
+#Visualizando as observações e as especificações referentes às variáveis do dataset
+glimpse(ceap) 
+
 ceap[1:100,] %>% 
   kable() %>%
   kable_styling(bootstrap_options = "striped",
                 full_width = F,
                 font_size = 12)
 
-#boxplot(ceap$valor)
-#boxplot(ceap$mediavaga)
-
-
-#Visualizando as observações e as especificações referentes às variáveis do dataset
-glimpse(ceap) 
-
 #Estatísticas univariadas
 summary(ceap)
 
+#Removendo pontos fora da curva
+outliers <- TRUE
+# 1 quantile, 2 tukey, 3 ZScores
+outliers_tipo <- 3
+if(outliers){
+  if(outliers_tipo == 1){
+    #QUANTILES
+    min <- quantile(ceap$valor, .05, names=FALSE)
+    max <- quantile(ceap$valor, .95, names=FALSE)
+  }
+  
+  if(outliers_tipo == 2){
+    #TUKEY
+    q1 <- quantile(ceap$valor, .25, names=FALSE)
+    q3 <- quantile(ceap$valor, .75, names=FALSE)
+    iqr <- iqr(ceap$valor)
+    min <- q1 - 1.5*iqr
+    max <- q3 + 1.5*iqr
+  }
+  
+if(outliers_tipo == 3){
+    #ZSCORES
+    z_hwy <- scale(ceap$valor)
+    hist(z_hwy)
+    summary(z_hwy)
+    max <- min(which(z_hwy > 3.29))
+    min <- min(ceap$valor)
+  }
+  
+  #com MIN e MAX
+  ceap <- ceap %>% dplyr::filter(valor > min & valor < max)
+}
 #Requer instalação e carregamento dos pacotes see e ggraph para a plotagem
 ceap %>%
   correlation(method = "pearson") %>%
   plot()
 
-source('proportional_stratified_sampling.R')
-cols <- c("ano", "", "uf")
-value_col = "valor"
-z = 0.95
+ceap_amostra <- ceap
+amostra <- TRUE
+if(amostra){
+  source('proportional_stratified_sampling.R')
+  cols <- c("ano")
+  value_col = "valor"
+  z = 0.95
+  
+  b <- 20
+  pss <- create_pss(ceap, value_col, cols, b = b, z = z)
+  
+  ceap_amostra <- sample_pss(pss)
+  
+  source("tools.R")
+  write_csv(ceap_amostra, '../samples');
+  
+  summary(ceap_amostra)
+  
+  ceap_amostra$orig.id <- NULL
+}
 
-b <- 50
-pss <- create_pss(ceap, value_col, cols, b = b, z = z)
-
-ceap_amostra <- sample_pss(pss)
-
-source("tools.R")
-write_csv(ceap_amostra, './samples');
-
-summary(ceap_amostra)
-
-ceap_amostra$orig.id <- NULL
-
-#dummies para partido, estado, tipo, anolegislatura
+ceap_amostra %>%
+  correlation(method = "pearson") %>%
+  plot()
 
 #Estimando a Regressão Múltipla
-modelo_ceap <- lm(formula = valor ~ . -cota,
+modelo_ceap <- lm(formula = valor ~ .,
                   data = ceap_amostra)
 
 anova(modelo_ceap)
@@ -86,7 +119,11 @@ chart_lm_residuals(modelo_ceap)
 
 sf.test(modelo_ceap$residuals)
 
+ols_vif_tol(modelo_ceap)
 
+ols_test_breusch_pagan(modelo_ceap)
+
+bptest(modelo_ceap)
 ########## STEPWISE #######################
 k <- qchisq(p = 0.05, df = 1, lower.tail = F)
 
@@ -94,7 +131,7 @@ modelo_ceap_step = step(modelo_ceap, k = k)
 
 summary(modelo_ceap_step)
 
-sf.test(modelo_ceap$residuals)
+sf.test(modelo_ceap_step$residuals)
 
 chart_lm_residuals(modelo_ceap_step)
 
@@ -111,7 +148,7 @@ ceap_amostra$valor_bc <- (((ceap_amostra$valor_positivo ^ lambda_BC$lambda) - 1)
                     lambda_BC$lambda)
 
 
-modelo_ceap_bc <- lm(formula = valor_bc ~ . -valor - valor_positivo -cota,
+modelo_ceap_bc <- lm(formula = valor_bc ~ . -valor - valor_positivo,
                   data = ceap_amostra)
 
 summary(modelo_ceap_bc)
@@ -119,24 +156,32 @@ summary(modelo_ceap_bc)
 anova(modelo_ceap_bc)
 fix(sf.test)
 sf.test(modelo_ceap_bc$residuals)
-hist(modelo_ceap_bc$residuals, breaks=100)
+hist(modelo_ceap_bc$residuals, breaks=10)
 ############  FIM  ########################
 
 ######  BOX-COX STEPWISE  #################
 
 modelo_ceap_bc_step = step(modelo_ceap_bc, k = k)
+
 summary(modelo_ceap_bc_step)
+
 sf.test(modelo_ceap_bc_step$residuals)
 
-chart_lm_residuals(modelo_ceap_bc)
+chart_lm_residuals(modelo_ceap_bc_step)
 
-ols_vif_tol(modelo_ceap_bc)
+ols_vif_tol(modelo_ceap_bc_step)
+
+ols_test_breusch_pagan(modelo_ceap_bc_step)
+
+library(lmtest)
+
+bptest(modelo_ceap_bc_step)
 
 hist(modelo_ceap_bc$residuals, breaks=100)
 
-#dummies
+#############dummies##################
 ceap_dummies <- dummy_columns(.data = ceap_amostra,
-                              select_columns = c("ano", "tipo", "uf", "anolegislatura"),
+                              select_columns = c("ano", "mes", "uf", "partido"),
                               remove_selected_columns = T,
                               remove_most_frequent_dummy = T)
 

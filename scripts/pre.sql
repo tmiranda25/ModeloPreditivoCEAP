@@ -39,6 +39,7 @@ txtPassageiro text,
 txtTrecho text,
 numLote text,
 numRessarcimento text,
+datPagamentoRestituicao text,
 vlrRestituicao text,
 nuDeputadoId text,
 ideDocumento text,
@@ -64,7 +65,7 @@ drop table if exists representatividade_stg;
 create table representatividade_stg(
 partido text,
 deputados integer,
-ano integer
+legislatura integer
 );
 
 DROP TABLE IF EXISTS vagas_stg;

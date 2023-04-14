@@ -1,21 +1,23 @@
+#Setar o Working dir para o diretório deste arquivo
 rm(list = ls())
-source("/media/thiago/Arquivos/web/TCC/src/r/init.R")
+source("init.R")
 
 #executa o script do banco de dados
-if(!file.exists('./final.csv')){
-  system('./database/db.sh')
-}
+#if(!file.exists('../dados/ceap.csv')){
+#  system('../script/db.sh')
+#}
 
-ceap <- read.csv("./final.csv")
-ceap <- ceap %>% dplyr::select("ano", "anolegislatura", "legislatura", "uf", "tipo", "partido", "mes", "valor", "eleitores", "distancia", "representatividade")
+ceap <- read.csv("../dados/ceap.csv")
+#"ano", "anolegislatura", "legislatura", "uf", "tipo", "partido", "mes", "valor", "eleitores", "distancia", "representatividade")
+ceap <- ceap %>% dplyr::select(-one_of('id'))
 
 ceap$anolegislatura <- as.factor(ceap$anolegislatura)
 ceap$legislatura <- as.factor(ceap$legislatura)
 ceap$ano <- as.factor(ceap$ano)
-ceap$carteira <- as.factor(ceap$carteira)
 ceap$mes <- as.factor(ceap$mes)
 ceap$uf <- as.factor(ceap$uf)
 ceap$tipo <- as.factor(ceap$tipo)
+ceap$partido <- as.factor(ceap$partido)
 
 #################################################################################
 #                 OBSERVANDO OS DADOS CARREGADOS DO DATASET                     #

@@ -9,12 +9,8 @@
  */
 begin;
 
---CONVERTO ANO EM LEGISLATURA
-ALTER TABLE representatividade_stg ADD COLUMN legislatura integer;
-UPDATE representatividade_stg SET legislatura = CASE WHEN ano = 2018 THEN 56 ELSE 55 END;
-ALTER TABLE representatividade_stg DROP COLUMN ano;
-
 --INSIRO A REPRESENTATIVIDADE FALTANTE DA FUSÃO
+DELETE FROM representatividade_stg WHERE partido = 'UNIÃO' AND legislatura = 56;
 INSERT INTO representatividade_stg(partido, deputados, legislatura)VALUES('UNIÃO', 52, 56);
 
 --ATUALIZO OS PARTIDOS QUE MUDARAM DE NOME
@@ -66,169 +62,50 @@ UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 
 UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - RPA';
 UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - SIGEPA';
 
+UPDATE ceap_stg SET txtdescricao = 'DIVULGAÇÃO MANDATO' WHERE trim(txtdescricao) = 'DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR.';
+UPDATE ceap_stg SET txtdescricao = 'MANUTENÇÃO DE ESCRITÓRIO' WHERE trim(txtdescricao) = 'MANUTENÇÃO DE ESCRITÓRIO DE APOIO À ATIVIDADE PARLAMENTAR';
+UPDATE ceap_stg SET txtdescricao = 'ASSESSORIA TÉCNICA/JURÍDICA' WHERE trim(txtdescricao) = 'CONSULTORIAS, PESQUISAS E TRABALHOS TÉCNICOS.';
+UPDATE ceap_stg SET txtdescricao = 'LOCAÇÃO DE AUTOMÓVEIS' WHERE trim(txtdescricao) = 'LOCAÇÃO OU FRETAMENTO DE VEÍCULOS AUTOMOTORES';
+UPDATE ceap_stg SET txtdescricao = 'COMBUSTÍVEIS E LUBRIFICANTES' WHERE trim(txtdescricao) = 'COMBUSTÍVEIS E LUBRIFICANTES.';
 --REMOVO O ÚNICO REGISTRO DO TIPO
 DELETE FROM ceap_stg WHERE txtdescricao = 'AQUISIÇÃO DE TOKENS E CERTIFICADOS DIGITAIS';
 
-DROP TABLE IF EXISTS dados;
-CREATE TABLE dados(
+DROP TABLE IF EXISTS ceap;
+CREATE TABLE ceap(
 id serial primary key,
-carteira integer,
 ano integer,
-mes integer,
+anolegislatura integer,
 legislatura integer,
 uf text,
 partido text,
 tipo text,
-representatividade integer,
-distancia integer,
-vagas integer, 
-eleitores integer,
-cota numeric(20,2),
 valor numeric(20,2)
 );
 
-INSERT INTO dados(uf, ano, mes, legislatura, partido, tipo, valor, carteira, representatividade, distancia, vagas, eleitores, cota)
-SELECT c.uf, c.ano, c.mes, c.datemissao, c.legislatura, c.partido, c.tipo, c.valor, c.carteira, r.deputados, ca.distancia::integer, v.vagas::integer, e.eleitores::integer, replace(co.cota, ',', '.')::numeric
+INSERT INTO ceap(uf, ano, legislatura, partido, tipo, valor, anolegislatura)
+SELECT c.uf, c.ano, c.legislatura, c.partido, c.tipo, SUM(c.valor), 
+    MAX(CASE 
+        WHEN c.ano = 2015 THEN 1 
+        WHEN c.ano = 2016 THEN 2 
+        WHEN c.ano = 2017 THEN 3 
+        WHEN c.ano = 2018 THEN 4 
+        WHEN c.ano = 2019 AND c.legislatura = 55 THEN 5
+        WHEN c.ano = 2019 THEN 1 
+        WHEN c.ano = 2020 THEN 2 
+        WHEN c.ano = 2021 THEN 3 
+        WHEN c.ano = 2022 THEN 4
+        WHEN c.ano = 2023 AND c.legislatura = 56 THEN 5  END)
 FROM (
-    SELECT sguf AS uf, numano::integer AS ano, nummes::integer AS mes, codlegislatura::integer AS legislatura, sgpartido AS partido, txtdescricao AS tipo, vlrdocumento::numeric - vlrglosa::numeric - vlrrestituicao::numeric AS valor, nucarteiraparlamentar::integer AS carteira
+    SELECT sguf AS uf, numano::integer AS ano, nummes::integer AS mes, codlegislatura::integer AS legislatura, sgpartido AS partido, txtdescricao AS tipo, vlrliquido::numeric AS valor
     FROM ceap_stg
-    WHERE nucarteiraparlamentar <> ''
+    WHERE nucarteiraparlamentar <> '' AND (vlrliquido::numeric > 0 OR txtdescricao <> 'PASSAGEM AÉREA')
 ) c
-JOIN (SELECT DISTINCT carteira::integer, legislatura::integer FROM tempo_mandato_stg WHERE (legislatura = '55' AND dias::integer = '1460') OR (legislatura = '56' AND dias = '1461')) tm ON c.carteira = tm.carteira AND c.legislatura = tm.legislatura
-JOIN capitais_stg ca ON c.uf = ca.uf
-JOIN vagas_stg v ON c.uf = v.uf
-JOIN eleitor_stg e ON c.uf = e.uf AND ((e.ano = '2014' AND c.legislatura = 55) OR (e.ano = '2018' AND c.legislatura = 56))
-JOIN cota_uf_stg co ON c.uf = co.uf
-LEFT JOIN (
-    select partido, legislatura::integer, sum(deputados) AS deputados 
-    from representatividade_stg 
-    group by 1, 2 
-    order by 1, 2) r ON c.legislatura = r.legislatura AND  c.partido = r.partido;
-
-DROP TABLE IF EXISTS agregado;
-CREATE TABLE agregado(
-id serial primary key,
-ano integer,
-mes integer,
-legislatura integer,
-uf text,
-partido text,
-tipo text,
-representatividade integer,
-distancia integer,
-vagas integer, 
-eleitores integer,
-cota numeric(20,2),
-valor numeric(20,2),
-quantidade integer
-);
-
-INSERT INTO agregado(uf, ano, mes, legislatura, partido, tipo, representatividade, distancia, vagas, eleitores, cota, valor, quantidade, saldo, disponivel, anolegislatura)
-SELECT c.uf, c.ano, c.mes, c.legislatura, c.partido, c.tipo, r.deputados, ca.distancia::integer, v.vagas::integer, e.eleitores::integer, replace(co.cota, ',', '.')::numeric, SUM(c.valor) AS valor, COUNT(*) AS quantidade, 
-    CASE 
-        WHEN c.ano = 2015 THEN '1' 
-        WHEN c.ano = 2016 THEN '2' 
-        WHEN c.ano = 2017 THEN '3' 
-        WHEN c.ano = 2018 THEN '4' 
-        WHEN c.ano = 2019 AND legislatura = 55 THEN '5', 
-        WHEN c.ano = 2019 THEN '1' 
-        WHEN c.ano = 2020 THEN '2' 
-        WHEN c.ano = 2021 THEN '3' 
-        WHEN c.ano = 2022 THEN '4'
-        WHEN c.ano = 2023 AND legislatura = 56 THEN '5'  END, 
-FROM (
-    SELECT sguf AS uf, numano::integer AS ano, nummes::integer AS mes, codlegislatura::integer AS legislatura, sgpartido AS partido, txtdescricao AS tipo, vlrdocumento::numeric - vlrglosa::numeric - vlrrestituicao::numeric AS valor, nucarteiraparlamentar::integer AS carteira
-    FROM ceap_stg
-    WHERE nucarteiraparlamentar <> ''
-) c
-JOIN capitais_stg ca ON c.uf = ca.uf
-JOIN vagas_stg v ON c.uf = v.uf
-JOIN eleitor_stg e ON c.uf = e.uf AND ((e.ano = '2014' AND c.legislatura = 55) OR (e.ano = '2018' AND c.legislatura = 56))
-JOIN cota_uf_stg co ON c.uf = co.uf
-LEFT JOIN (
-    select partido, legislatura::integer, sum(deputados) AS deputados 
-    from representatividade_stg 
-    group by 1, 2 
-    order by 1, 2) r ON c.legislatura = r.legislatura AND  c.partido = r.partido
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11;
-
-UPDATE agregado SET saldo = case when anolegislatura = 1 then cota*11 when anolegislatura = 5 then cota else cota*12;
-
-
--- UPDATE deputado_stg SET siglapartido = 'SOLIDARIEDADE' WHERE siglapartido = 'SD';
--- UPDATE deputado_stg SET siglapartido = 'CIDADANIA' WHERE siglapartido = 'PPS';
--- UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PATRI';
--- UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PRP';
--- UPDATE deputado_stg SET siglapartido = 'REPUBLICANOS' WHERE siglapartido = 'PRB';
--- UPDATE deputado_stg SET siglapartido = 'MDB' WHERE siglapartido = 'PMDB';
--- UPDATE deputado_stg SET siglapartido = 'PODEMOS' WHERE siglapartido = 'PHS';
--- UPDATE deputado_stg SET siglapartido = 'PCdoB' WHERE siglapartido = 'PC do B';
--- UPDATE deputado_stg SET siglapartido = 'PCdoB' WHERE siglapartido = 'PPL';
--- --UPDATE deputado_stg SET siglapartido = 'UNIÃO' WHERE siglapartido = 'PSL';
--- --UPDATE deputado_stg SET siglapartido = 'UNIÃO' WHERE siglapartido = 'DEM';
--- UPDATE deputado_stg SET siglapartido = 'REPUBLICANOS' WHERE siglapartido = 'PRB';
--- UPDATE deputado_stg SET siglapartido = 'PODEMOS' WHERE siglapartido = 'PODE';
--- UPDATE deputado_stg SET siglapartido = 'PODEMOS' WHERE siglapartido = 'PTN';
--- UPDATE deputado_stg SET siglapartido = 'PATRIOTA' WHERE siglapartido = 'PEN';
--- UPDATE deputado_stg SET siglapartido = 'DC' WHERE siglapartido = 'PSDC';
--- UPDATE deputado_stg SET siglapartido = 'AVANTE' WHERE siglapartido = 'PTdoB';
--- UPDATE deputado_stg SET siglapartido = 'AGIR' WHERE siglapartido = 'PTC';
--- UPDATE deputado_stg SET siglapartido = 'PP' WHERE siglapartido = 'PP**';
--- UPDATE deputado_stg SET siglapartido = 'MDB' WHERE siglapartido = 'PMDB';
-
-
--- DROP TABLE IF EXISTS dados;
--- CREATE TABLE dados(
--- ano integer,
--- mes integer,
--- legislatura integer,
--- anolegislatura text,
--- uf text,
--- partido text,
--- tipo text,
--- eleitores integer,
--- representatividade integer,
--- distancia integer,
--- vagas integer,
--- valor numeric(20,2)
--- );
--- 
--- DROP TABLE IF EXISTS dados_v2;
--- CREATE TABLE dados_v2(
--- ano integer,
--- legislatura integer,
--- anolegislatura text,
--- uf text,
--- tipo text,
--- eleitores integer,
--- distancia integer,
--- vagas integer,
--- valor numeric(20,2)
--- );
--- 
--- DROP TABLE IF EXISTS dados_v3;
--- CREATE TABLE dados_v3(
--- iddeputado integer,
--- partido text,
--- ano integer,
--- mes integer,
--- legislatura integer,
--- meseslegislatura integer, 
--- cotalegislatura numeric(20,2),
--- anolegislatura integer,
--- uf text,
--- tipo text,
--- eleitores integer,
--- distancia integer,
--- vagas integer,
--- valor numeric(20,2),
--- cota numeric(20,2)
--- );
+GROUP BY 1, 2, 3, 4, 5;
 
 DROP TABLE IF EXISTS eleitor;
 CREATE TABLE eleitor(
 id serial primary key,
-ano integer,
+legislatura integer,
 uf text,
 total integer
 );
@@ -252,298 +129,79 @@ CREATE TABLE representatividade(
 id serial primary key,
 partido text,
 deputados integer,
-ano integer
-);
-
-DROP TABLE IF EXISTS tempo_mandato;
-CREATE TABLE tempo_mandato(
-carteira integer,
 legislatura integer
 );
 
 DROP TABLE IF EXISTS cota_uf;
 CREATE TABLE cota_uf(
 uf text,
-cota numeric(20,2),
-pos54 bool
+cota numeric(20,2)
 );
 
-DROP TABLE IF EXISTS deputado;
-create table deputado(
-    iddeputado integer not null,
-    nome text not null,
-    siglapartido text not null,
-    siglauf text,
-    legislatura integer,
-    PRIMARY KEY(iddeputado, legislatura)
-);
-
--- vlrtotal - vlrglosa - vlrrestituicao
-INSERT INTO eleitor(uf, ano, total)
-SELECT uf, ano::integer, eleitores::integer
+INSERT INTO eleitor(uf, legislatura, total)
+SELECT uf, CASE WHEN ano::integer = 2014 THEN 55 WHEN ano::integer = 2018 THEN 56 END, eleitores::integer
 FROM eleitor_stg;
 
 INSERT INTO capitais(uf, distancia)SELECT uf, distancia::integer FROM capitais_stg;
 
 INSERT INTO vagas(uf, vagas)SELECT uf, vagas::integer FROM vagas_stg;
 
-
---IMPORTANTE
-
---NÃO USAR A REPRESENTATIVIDADE
--- INSERT INTO representatividade(partido, deputados, ano)SELECT trim(partido), SUM(deputados), ano FROM representatividade_stg GROUP BY 1, 3;
--- UPDATE tempo_mandato_stg SET nome = UPPER(nome);
--- UPDATE tempo_mandato_stg SET nome = 'MAJOR VITOR HUGO' WHERE trim(nome) = 'VITOR HUGO';
--- UPDATE tempo_mandato_stg SET nome = 'ALENCAR SANTANA' WHERE trim(nome) = 'ALENCAR SANTANA BRAGA';
--- UPDATE tempo_mandato_stg SET nome = 'DOUTOR LUIZINHO' WHERE trim(nome) = 'DR. LUIZ ANTONIO TEIXEIRA JR.';
--- UPDATE tempo_mandato_stg SET nome = 'CAPITÃO DERRITE' WHERE trim(nome) = 'GUILHERME DERRITE';
--- UPDATE tempo_mandato_stg SET nome = 'PAULINHO DA FORÇA' WHERE trim(nome) = 'PAULO PEREIRA DA SILVA';
--- UPDATE tempo_mandato_stg SET nome = 'MAJOR VITOR HUGO' WHERE trim(nome) = 'RENATO QUEIROZ';
-
-INSERT INTO tempo_mandato(carteira, legislatura)
-SELECT DISTINCT iddeputado, legislatura FROM tempo_mandato_stg WHERE (legislatura IN(54,55) AND dias::integer = 1460) OR (legislatura = 56 AND dias = 1461);
-
 INSERT INTO cota_uf(uf, cota)SELECT uf, replace(cota, ',', '.')::numeric FROM cota_uf_stg;
 
-INSERT INTO deputado SELECT * FROM deputado_stg;
-UPDATE deputado SET siglapartido = trim(siglapartido);
+INSERT INTO representatividade(partido, legislatura, deputados)SELECT trim(partido), legislatura, sum(deputados) AS deputados from representatividade_stg group by 1, 2 order by 1, 2;
 
-INSERT INTO dados(ano, mes, legislatura, anolegislatura, uf, partido, tipo, eleitores, distancia, vagas, representatividade, valor)
-SELECT 
-    c.ano, c.mes, c.legislatura, 
-    CASE 
-        WHEN c.ano = 2015 THEN '1' 
-        WHEN c.ano = 2016 THEN '2' 
-        WHEN c.ano = 2017 THEN '3' 
-        WHEN c.ano = 2018 THEN '4' 
-        WHEN c.ano = 2019 AND legislatura = 55 THEN '5', 
-        WHEN c.ano = 2019 THEN '1' 
-        WHEN c.ano = 2020 THEN '2' 
-        WHEN c.ano = 2021 THEN '3' 
-        WHEN c.ano = 2022 THEN '4'
-        WHEN c.ano = 2023 AND legislatura = 56 THEN '5'  END, 
-    c.uf, c.partido, c.tipo, e.total, ca.distancia, v.vagas, COALESCE(r.deputados, 0), c.valor AS valor
-FROM eleitor e 
-JOIN ceap c ON e.uf = c.uf AND ((e.ano = 2010 AND c.legislatura = 54) OR (e.ano = 2014 AND c.legislatura = 55) OR (e.ano = 2018 AND c.legislatura = 56))
-JOIN capitais ca ON e.uf = ca.uf
-JOIN vagas v ON e.uf = v.uf
-LEFT JOIN representatividade r ON r.partido = c.partido AND ((r.ano = 2010 AND c.legislatura = 54) OR (r.ano = 2014 AND c.legislatura = 55) OR (r.ano = 2018 AND c.legislatura = 56))
-WHERE valor > 0;
-
--- SELECT SUM(valor/vagas), SUM(valor/e.total), c.ano, c.uf, tipo 
--- FROM ceap c
--- JOIN vagas USING(uf) JOIN capitais ca USING(uf)
--- JOIN eleitor e ON e.uf = c.uf AND ((e.ano = 2014 AND c.legislatura = 55) OR (e.ano = 2018 AND c.legislatura = 56))
--- WHERE c.ano <> 2022
--- GROUP BY c.ano, c.uf, c.tipo;
-
-
-INSERT INTO dados_v2(ano, legislatura, anolegislatura, uf, tipo, eleitores, distancia, vagas, valor)
-SELECT 
-    c.ano, c.legislatura, 
-        CASE
-        WHEN c.ano = 2013 THEN 3
-        WHEN c.ano = 2014 THEN 4 
-        WHEN c.ano = 2015 THEN 1 
-        WHEN c.ano = 2016 THEN 2 
-        WHEN c.ano = 2017 THEN 3 
-        WHEN c.ano = 2018 THEN 4 
-        WHEN c.ano = 2019 THEN 1 
-        WHEN c.ano = 2020 THEN 2 END, 
-    c.uf, c.tipo, e.total, ca.distancia, v.vagas, c.valor AS valor
-FROM eleitor e 
-JOIN ceap c ON e.uf = c.uf AND ((e.ano = 2010 AND c.legislatura = 54) OR (e.ano = 2014 AND c.legislatura = 55) OR (e.ano = 2018 AND c.legislatura = 56))
-JOIN capitais ca ON e.uf = ca.uf
-JOIN vagas v ON e.uf = v.uf
-WHERE valor > 0 AND c.ano <> 2022;
---GROUP BY 1, 2, 3, 4, 5, 6, 7;
-
-INSERT INTO dados_v3(iddeputado, ano, mes, legislatura, meseslegislatura, anolegislatura, uf, tipo, eleitores, distancia, vagas, valor, cota)
-SELECT 
-    c.iddeputado, c.ano, c.mes, c.legislatura,
-    CASE 
-        WHEN c.ano = 2013 THEN 12 
-        WHEN c.ano = 2014 THEN 12 
-        WHEN c.ano = 2015 AND c.legislatura = 54 THEN 1
-        WHEN c.ano = 2015 THEN 11 
-        WHEN c.ano = 2016 THEN 12 
-        WHEN c.ano = 2017 THEN 12
-        WHEN c.ano = 2018 THEN 12 
-        WHEN c.ano = 2019 AND c.legislatura = 55 THEN 1
-        WHEN c.ano = 2019 THEN 11
-        WHEN c.ano = 2020 THEN 12 
-        WHEN c.ano = 2021 THEN 12 END,
-    CASE 
-        WHEN c.ano = 2014 THEN 4 
-        WHEN c.ano = 2015 AND c.legislatura = 54 THEN 5
-        WHEN c.ano = 2015 THEN 1 
-        WHEN c.ano = 2016 THEN 2 
-        WHEN c.ano = 2017 THEN 3 
-        WHEN c.ano = 2018 THEN 4 
-        WHEN c.ano = 2019 AND c.legislatura = 55 THEN 5 
-        WHEN c.ano = 2019 THEN 1 
-        WHEN c.ano = 2020 THEN 2 
-        WHEN c.ano = 2021 THEN 3 END, 
-    c.uf, c.tipo, e.total, ca.distancia, v.vagas, c.valor AS valor, cuf.cota
-FROM  eleitor e
-JOIN ceap c ON e.uf = c.uf AND ((e.ano = 2010 AND c.legislatura = 54) OR (e.ano = 2014 AND c.legislatura = 55) OR (e.ano = 2018 AND c.legislatura = 56))
-JOIN capitais ca ON e.uf = ca.uf
-JOIN vagas v ON e.uf = v.uf
-JOIN tempo_mandato tm ON c.iddeputado = tm.iddeputado AND c.legislatura = tm.legislatura
-JOIN cota_uf cuf ON cuf.uf = c.uf AND ((c.legislatura = 54 AND NOT cuf.pos54) OR (c.legislatura > 54 AND cuf.pos54))
-WHERE c.ano <> 2022;
-
-DELETE FROM dados_v3 WHERE legislatura = 56 AND anolegislatura = '1' AND iddeputado IN(
-    SELECT iddeputado 
-        FROM (
-            SELECT sum(valor)AS valor, iddeputado
-            FROM dados_v3 
-            WHERE legislatura = 56 AND anolegislatura = '1'
-            GROUP BY iddeputado, anolegislatura, legislatura 
-     ) foo
-     WHERE valor < 4000
-);
-
-DELETE FROM dados_v3 WHERE legislatura = 55 AND anolegislatura = '1' AND iddeputado IN(
-    SELECT iddeputado 
-        FROM (
-            SELECT sum(valor)AS valor, iddeputado
-            FROM dados_v3 
-            WHERE legislatura = 55 AND anolegislatura = '1'
-            GROUP BY iddeputado, anolegislatura, legislatura 
-     ) foo
-     WHERE valor < 2000
-);
-
-
--- select *, max-sum AS diff from (select sum(valor), iddeputado, anolegislatura, legislatura, MAX(cotalegislatura) from dados_v3 group by iddeputado, anolegislatura, legislatura) foo where iddeputado IN(193726, 73781) order by 2;
-
-DROP TABLE IF EXISTS agregado_tipo;
-CREATE TABLE IF NOT EXISTS agregado_tipo(
-iddeputado integer, 
-anolegislatura integer, 
-legislatura integer, 
-tipo text, 
-siglapartido text, 
-siglauf text, 
-meses integer,
-distancia integer, 
-eleitores integer, 
-vagas integer,
-representatividade integer,
-valor numeric(20,2),
-contagem integer
-);
-
-DROP TABLE IF EXISTS agregado_ano;
-CREATE TABLE IF NOT EXISTS agregado_ano(
-iddeputado integer, 
-anolegislatura integer, 
+DROP TABLE IF EXISTS agregado;
+CREATE TABLE agregado(
+ano integer,
 legislatura integer,
-siglapartido text, 
-siglauf text, 
-meses integer,
+anolegislatura integer,
+uf text,
+partido text,
+tipo text,
+representatividade integer,
+distancia integer,
+vagas integer, 
+eleitores integer,
 cota numeric(20,2),
-distancia integer, 
-eleitores integer, 
-vagas integer,
-representatividade integer,
-valor numeric(20,2),
-contagem integer
+valor numeric(20,2)
 );
 
-DROP TABLE IF EXISTS contagem;
-CREATE TABLE IF NOT EXISTS contagem(
-anolegislatura integer, 
-legislatura integer,
-siglapartido text, 
-siglauf text, 
-tipo text,
-iddeputado integer,
-ano integer,
-mes integer,
-distancia integer, 
-eleitores integer, 
-vagas integer,
-representatividade integer,
-valor numeric(20,2),
-contagem integer
+INSERT INTO agregado(uf, ano, legislatura, partido, tipo, representatividade, distancia, vagas, eleitores, cota, valor, anolegislatura)
+SELECT c.uf, c.ano, c.legislatura, c.partido, c.tipo, r.deputados, ca.distancia, v.vagas, e.total, co.cota, c.valor, c.anolegislatura
+FROM ceap c
+JOIN capitais ca ON c.uf = ca.uf
+JOIN vagas v ON c.uf = v.uf
+JOIN eleitor e ON c.uf = e.uf AND e.legislatura = c.legislatura
+JOIN cota_uf co ON c.uf = co.uf LEFT JOIN representatividade r ON c.legislatura = r.legislatura AND  c.partido = r.partido;
+--GROUP BY 1, 2, 3, 4, 5;
+
+
+DROP TABLE IF EXISTS agregado_uf;
+CREATE TABLE agregado_uf(
+uf text,
+distancia integer,
+cota numeric(20,2),
+valor numeric(20,2)
 );
 
---dados quebrados por ano-> tem a porcentagem da cota gasta
+INSERT INTO agregado_uf(uf, distancia, cota, valor)
+SELECT c.uf, MAX(ca.distancia), MAX(co.cota), SUM(c.valor)/MAX(v.vagas)
+FROM ceap c
+JOIN capitais ca ON c.uf = ca.uf
+JOIN vagas v ON c.uf = v.uf
+--JOIN eleitor e ON c.uf = e.uf AND e.legislatura = c.legislatura
+JOIN cota_uf co ON c.uf = co.uf 
+--LEFT JOIN representatividade r ON c.legislatura = r.legislatura AND  c.partido = r.partido
+GROUP BY c.uf;
 
---dados quebrados por tipo
-INSERT INTO agregado_tipo(iddeputado, anolegislatura, legislatura, tipo, siglapartido, siglauf, meses, distancia, eleitores, vagas, representatividade, valor, contagem)
-select iddeputado, anolegislatura, legislatura, tipo, siglapartido, siglauf, meses, distancia, eleitores, vagas, deputados, valor, contagem from (select sum(valor) AS valor, count(*) AS contagem, iddeputado, anolegislatura, legislatura, tipo, MAX(meseslegislatura) AS meses, MAX(distancia) AS distancia, MAX(eleitores) AS eleitores, MAX(vagas) AS vagas from dados_v3 group by iddeputado, anolegislatura, legislatura, tipo) foo  JOIN deputado d USING(legislatura, iddeputado) left join representatividade r ON trim(r.partido) = trim(d.siglapartido) AND ((r.ano = 2014 AND foo.legislatura = 55) OR (r.ano = 2018 AND foo.legislatura = 56) OR (r.ano = 2010 AND foo.legislatura = 54));
-;
-
---dados quebrados por ano-> tem a porcentagem da cota gasta
-INSERT INTO agregado_ano(iddeputado, anolegislatura, legislatura, siglapartido, siglauf, cota, meses, distancia, eleitores, vagas, representatividade, valor, contagem)
-select iddeputado, anolegislatura, legislatura, siglapartido, siglauf, cota, meses, distancia, eleitores, vagas, deputados, case when valor > cota*meses then cota*meses else valor end AS valor, contagem from (select sum(valor) AS valor, count(*) AS contagem, iddeputado, anolegislatura, legislatura, MAX(meseslegislatura) AS meses, MAX(cota) AS cota, MAX(distancia) AS distancia, MAX(eleitores) AS eleitores, MAX(vagas) AS vagas from dados_v3 group by iddeputado, anolegislatura, legislatura) foo join deputado d USING(iddeputado, legislatura)  left join representatividade r ON trim(r.partido) = trim(d.siglapartido) AND ((r.ano = 2014 AND foo.legislatura = 55) OR (r.ano = 2018 AND foo.legislatura = 56) OR (r.ano = 2010 AND foo.legislatura = 54));
-;
-
---dados contagem
-INSERT INTO contagem(anolegislatura, legislatura, siglapartido, siglauf, tipo, iddeputado, ano, mes, distancia, eleitores, vagas, representatividade, valor, contagem)
-select anolegislatura, legislatura, c.partido, c.uf, c.tipo, c.iddeputado, c.ano, c.mes, ca.distancia AS distancia, e.total AS eleitores, vagas, r.deputados, valor, contagem 
-from (
-	select count(*) AS contagem, sum(valor) AS valor, anolegislatura, legislatura, partido, uf, tipo, iddeputado, ano, mes
-	FROM (
-		select CASE 
-                WHEN ano = 2014 THEN 4 
-                WHEN ano = 2015 AND legislatura = 54 THEN 5
-                WHEN ano = 2015 THEN 1 
-                WHEN ano = 2016 THEN 2 
-                WHEN ano = 2017 THEN 3 
-                WHEN ano = 2018 THEN 4 
-                WHEN ano = 2019 AND legislatura = 55 THEN 5 
-                WHEN ano = 2019 THEN 1 
-                WHEN ano = 2020 THEN 2 
-                WHEN ano = 2021 THEN 3 END AS anolegislatura, legislatura, partido, uf, tipo, iddeputado, ano, mes, valor
-		from ceap
-		WHERE ano <> 2022
-		) foo
-    group by anolegislatura, legislatura, partido, uf, tipo, iddeputado, ano, mes
-) c
-JOIN eleitor e ON e.uf = c.uf AND ((e.ano = 2010 AND c.legislatura = 54) OR (e.ano = 2014 AND c.legislatura = 55) OR (e.ano = 2018 AND c.legislatura = 56))
-JOIN capitais ca ON e.uf = ca.uf
-JOIN vagas v ON e.uf = v.uf
-JOIN cota_uf cuf ON cuf.uf = c.uf AND ((c.legislatura = 54 AND NOT cuf.pos54) OR (c.legislatura > 54 AND cuf.pos54))
-LEFT JOIN representatividade r ON trim(r.partido) = trim(c.partido) AND ((r.ano = 2014 AND c.legislatura = 55) OR (r.ano = 2018 AND c.legislatura = 56) OR (r.ano = 2010 AND c.legislatura = 54));
---where NOT (iddeputado = 74043 and mes = 2 and ano = 2015);
-
-DROP TABLE IF EXISTS contagem_v3;
-CREATE TABLE IF NOT EXISTS contagem_v3(
-anolegislatura integer, 
-legislatura integer,
-partido text, 
-uf text, 
-tipo text,
-iddeputado integer,
-ano integer,
-mes integer,
-distancia integer, 
-eleitores integer, 
-vagas integer,
-representatividade integer,
-valor numeric(20,2),
-contagem integer
+DROP TABLE IF EXISTS agregado_partido;
+CREATE TABLE agregado_partido(
+partido text,
+deputados integer,
+valor numeric(20,2)
 );
 
-INSERT INTO contagem_v3(anolegislatura, legislatura, partido, uf, tipo, iddeputado, ano, mes, distancia, eleitores, vagas, representatividade, valor, contagem)
-select anolegislatura, legislatura, c.partido, uf, tipo, iddeputado, c.ano, c.mes, distancia, eleitores, vagas, r.deputados, valor, contagem 
-from (
-	select count(*) AS contagem, sum(valor) AS valor, anolegislatura, legislatura, partido, uf, tipo, iddeputado, ano, mes, MAX(distancia) AS distancia, MAX(eleitores) AS eleitores, MAX(vagas) AS vagas, MAX(cota) AS cota
-	FROM dados_v3
-        group by anolegislatura, legislatura, partido, uf, tipo, iddeputado, ano, mes
-) c
-LEFT JOIN representatividade r ON trim(r.partido) = trim(c.partido) AND ((r.ano = 2014 AND c.legislatura = 55) OR (r.ano = 2018 AND c.legislatura = 56) OR (r.ano = 2010 AND c.legislatura = 54));
-
---validação de dados
---select * from ceap c WHERE NOT EXISTS(SELECT FROM dados d WHERE d.id_ceap = c.id);
-
--- ALTER TABLE dados DROP COLUMN id;
--- ALTER TABLE dados DROP COLUMN id_ceap;
--- ALTER TABLE dados DROP COLUMN id_eleitor;
--- ALTER TABLE dados DROP COLUMN id_capital;
+INSERT INTO agregado_partido(partido, deputados, valor)
+select partido, deputados, valor AS valor from (select partido, sum(valor) AS valor FROM agregado WHERE partido NOT IN('DEM', 'PSL', 'UNIÃO') GROUP BY partido) p LEFT JOIN (select partido, sum(deputados) AS deputados from representatividade group by partido) r USING(partido);
 
 commit;

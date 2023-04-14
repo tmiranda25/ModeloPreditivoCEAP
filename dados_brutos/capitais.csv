@@ -1,28 +1,28 @@
-Capital,Distância Aérea,UF
-Rio Branco,2246,AC
-Maceió,1485,AL
-Macapá,1791,AP
-Manaus,1932,AM
-Salvador,1060,BA
-Fortaleza,1687,CE
-Brasília,0,DF
-Vitória,947,ES
-Goiânia,173,GO
-São Luis,1524,MA
-Belo Horizonte,624,MG
-Campo Grande,878,MS
-Cuiabá,873,MT
-Belém,1592,PA
-João Pessoa,1716,PB
-Recife,1657,PE
-Teresina,1313,PI
-Curitiba,1081,PR
-R. Janeiro,933,RJ
-Natal,1775,RN
-Porto Velho,1900,RO
-Boa Vista,4275,RR
-Porto Alegre,1619,RS
-Florianópolis,1314,SC
-Aracajú,1292,SE
-São Paulo,873,SP
-Palmas,620,TO
+"Capital";"Distância Aérea";"UF"
+"Aracajú";1292;"SE"
+"Belém";1592;"PA"
+"Belo Horizonte";624;"MG"
+"Boa Vista";2496;"RR"
+"Brasília";0;"DF"
+"Campo Grande";878;"MS"
+"Cuiabá";877;"MT"
+"Curitiba";1081;"PR"
+"Florianópolis";1314;"SC"
+"Fortaleza";1687;"CE"
+"Goiânia";173;"GO"
+"João Pessoa";1716;"PB"
+"Macapá";1791;"AP"
+"Maceió";1485;"AL"
+"Manaus";1932;"AM"
+"Natal";1775;"RN"
+"Palmas";620;"TO"
+"Porto Alegre";1619;"RS"
+"Porto Velho";1900;"RO"
+"R. Janeiro";933;"RJ"
+"Recife";1657;"PE"
+"Rio Branco";2246;"AC"
+"Salvador";1060;"BA"
+"São Luis";1524;"MA"
+"São Paulo";850;"SP"
+"Teresina";1313;"PI"
+"Vitória";947;"ES"
