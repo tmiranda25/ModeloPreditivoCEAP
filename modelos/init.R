@@ -45,7 +45,7 @@ f_grafico_residuos <- function(data, residuos){
     geom_histogram(aes(y = ..density..), 
                    color = "grey50", 
                    fill = "grey90", 
-                   bins = 30,
+                   bins = 10,
                    alpha = 0.6) +
     stat_function(fun = dnorm, 
                   args = list(mean = mean(residuos),
@@ -101,7 +101,7 @@ f_lm <- function(dt, formula, step=FALSE){
   
   print(sf.test(lm_model$residuals))   
   
-  print(lm_model %>% plot())
+  #print(lm_model %>% plot())
 }
 
 f_boxcox <- function(dt, step=FALSE){
@@ -125,7 +125,7 @@ f_boxcox <- function(dt, step=FALSE){
   print(summary(bc_model))
   
   
-  #ols_test_breusch_pagan(bc_model)
+  print(ols_test_breusch_pagan(bc_model))
   
   print(bptest(bc_model))
   
@@ -133,7 +133,7 @@ f_boxcox <- function(dt, step=FALSE){
   
   #print(chart_lm_residuals(bc_model))
   
-  print(bc_model %>% plot())
+  #print(bc_model %>% plot())
   
   dt$valor_bc <- NULL
   

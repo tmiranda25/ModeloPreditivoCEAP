@@ -5,7 +5,7 @@ source("init.R")
 #################################################################################
 #                 LENDO OS DADOS                                                #
 #################################################################################
-ceap_uf <- read.csv("../dados/uf.csv")
+ceap_uf <- read.csv("../dados/passagem.csv")
 rownames(ceap_uf) <- ceap_uf$uf
 ceap_uf$uf <- NULL
 #################################################################################
@@ -37,7 +37,7 @@ f_lm(ceap_uf, valor ~ .)
 ####################################################################
 #Removendo as variáveis explicativas que apresentam alta correlação
 ####################################################################
-ceap_uf <- ceap_uf %>% dplyr::select(-one_of(c("cota")))
+ceap_uf <- ceap_uf %>% dplyr::select(-one_of(c("eleitores")))
 
 ceap_uf %>%
   correlation(method = "pearson") %>%
