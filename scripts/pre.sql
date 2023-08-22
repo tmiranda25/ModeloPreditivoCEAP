@@ -10,8 +10,8 @@
 begin;
 --create user tcc with password 'tcc';
 --create database tcc with owner tcc;
-DROP TABLE IF EXISTS ceap_stg;
-create table ceap_stg(
+DROP TABLE IF EXISTS ceap_bruto;
+create table ceap_bruto(
 txNomeParlamentar text,
 cpf text,
 ideCadastro text,
@@ -46,54 +46,56 @@ ideDocumento text,
 urlDocumento text
 );
 
-DROP TABLE IF EXISTS eleitor_stg;
-create table if not exists eleitor_stg(
+DROP TABLE IF EXISTS eleitor_bruto;
+create table if not exists eleitor_bruto(
 ano text,
 uf text,
 eleitores text);
 
-ALTER TABLE eleitor_stg ALTER COLUMN eleitores TYPE integer USING eleitores::integer;
+ALTER TABLE eleitor_bruto ALTER COLUMN eleitores TYPE integer USING eleitores::integer;
 
-DROP TABLE IF EXISTS capitais_stg;
-create table capitais_stg(
+DROP TABLE IF EXISTS capitais_bruto;
+create table capitais_bruto(
 capital text,
 distancia text,
 uf text
 );
 
-drop table if exists representatividade_stg;
-create table representatividade_stg(
+drop table if exists representatividade_bruto;
+create table representatividade_bruto(
 partido text,
-deputados integer,
-legislatura integer
+deputados text,
+legislatura text
 );
 
-DROP TABLE IF EXISTS vagas_stg;
-create table vagas_stg(
+DROP TABLE IF EXISTS vagas_bruto;
+create table vagas_bruto(
 uf text,
 vagas text
 );
 
-DROP TABLE IF EXISTS tempo_mandato_stg;
-create table tempo_mandato_stg(
-legislatura text,
-iddeputado text,
-dias text
-);
+-- DROP TABLE IF EXISTS tempo_mandato_bruto;
+-- create table tempo_mandato_bruto(
+-- legislatura text,
+-- iddeputado text,
+-- dias text
+-- );
 
-DROP TABLE IF EXISTS cota_uf_stg;
-create table cota_uf_stg(
+DROP TABLE IF EXISTS cota_uf_bruto;
+create table cota_uf_bruto(
 uf text,
 cota text
 );
 
-DROP TABLE IF EXISTS deputado_stg;
-create table deputado_stg(
-    iddeputado integer not null,
-    nome text not null,
-    siglapartido text not null,
-    siglauf text,
-    idlegislatura integer,
-    PRIMARY KEY(iddeputado, idlegislatura)
-);
+-- DROP TABLE IF EXISTS deputado_bruto;
+-- create table deputado_bruto(
+--     iddeputado integer not null,
+--     nome text not null,
+--     siglapartido text not null,
+--     siglauf text,
+--     idlegislatura integer,
+--     PRIMARY KEY(iddeputado, idlegislatura)
+-- );
+
 commit;
+

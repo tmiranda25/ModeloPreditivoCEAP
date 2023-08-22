@@ -9,40 +9,65 @@
  */
 begin;
 
---INSIRO A REPRESENTATIVIDADE FALTANTE DA FUSÃO
-DELETE FROM representatividade_stg WHERE partido = 'UNIÃO' AND legislatura = 56;
-INSERT INTO representatividade_stg(partido, deputados, legislatura)VALUES('UNIÃO', 52, 56);
+DROP TABLE IF EXISTS ceap_stg;
+create table ceap_stg AS (select * from ceap_bruto);
 
---ATUALIZO OS PARTIDOS QUE MUDARAM DE NOME
-UPDATE representatividade_stg SET partido = 'SOLIDARIEDADE' WHERE trim(partido) = 'SD';
-UPDATE representatividade_stg SET partido = 'CIDADANIA' WHERE trim(partido) = 'PPS';
-UPDATE representatividade_stg SET partido = 'PATRIOTA' WHERE trim(partido) = 'PATRI';
-UPDATE representatividade_stg SET partido = 'PATRIOTA' WHERE trim(partido) = 'PRP';
-UPDATE representatividade_stg SET partido = 'REPUBLICANOS' WHERE trim(partido) = 'PRB';
-UPDATE representatividade_stg SET partido = 'MDB' WHERE trim(partido) = 'PMDB';
-UPDATE representatividade_stg SET partido = 'PODEMOS' WHERE trim(partido) = 'PHS';
-UPDATE representatividade_stg SET partido = 'PCdoB' WHERE trim(partido) = 'PC do B';
-UPDATE representatividade_stg SET partido = 'PCdoB' WHERE trim(partido) = 'PPL';
---UPDATE representatividade_stg SET partido = 'UNIÃO' WHERE trim(partido) = 'PSL';
---UPDATE representatividade_stg SET partido = 'UNIÃO' WHERE trim(partido) = 'DEM';
-UPDATE representatividade_stg SET partido = 'REPUBLICANOS' WHERE trim(partido) = 'PRB';
-UPDATE representatividade_stg SET partido = 'PODEMOS' WHERE trim(partido) = 'PODE';
-UPDATE representatividade_stg SET partido = 'PODEMOS' WHERE trim(partido) = 'PTN';
-UPDATE representatividade_stg SET partido = 'PATRIOTA' WHERE trim(partido) = 'PEN';
-UPDATE representatividade_stg SET partido = 'DC' WHERE trim(partido) = 'PSDC';
-UPDATE representatividade_stg SET partido = 'AVANTE' WHERE trim(partido) = 'PTdoB';
---UPDATE representatividade_stg SET partido = 'AVANTE' WHERE trim(partido) = 'PT do B';
-UPDATE representatividade_stg SET partido = 'AGIR' WHERE trim(partido) = 'PTC';
-UPDATE representatividade_stg SET partido = 'PL' WHERE trim(partido) = 'PR';
-UPDATE representatividade_stg SET partido = trim(partido);
-
---REMOVO LEGISLATURA ANTERIOR E POSTERIOR
-DELETE FROM ceap_stg WHERE codlegislatura IN('54', '57');
+ALTER TABLE ceap_stg ALTER numano TYPE integer USING numano::integer;
+ALTER TABLE ceap_stg ALTER nummes TYPE integer USING nummes::integer;
+ALTER TABLE ceap_stg ALTER codlegislatura TYPE integer USING codlegislatura::integer;
 
 --ATUALIZO NÚMEROS COM VALORES VAZIOS
-UPDATE ceap_stg SET vlrdocumento = 0 WHERE vlrdocumento = '';
-UPDATE ceap_stg SET vlrglosa = 0 WHERE vlrglosa = '';
-UPDATE ceap_stg SET vlrrestituicao = 0 WHERE vlrrestituicao = '';
+UPDATE ceap_stg SET vlrliquido = 0 WHERE vlrliquido = '';
+ALTER TABLE ceap_stg ALTER vlrliquido TYPE numeric(20, 2) USING vlrliquido::numeric;
+
+create index on ceap_stg(txtdescricao);
+create index on ceap_stg(sgpartido);
+create index on ceap_stg(numano);
+create index on ceap_stg(codlegislatura);
+
+ANALYZE ceap_stg;
+ANALYZE ceap_stg;
+
+DROP TABLE IF EXISTS eleitor_stg;
+create table if not exists eleitor_stg AS (select * from eleitor_bruto);
+ALTER TABLE eleitor_stg ALTER eleitores TYPE integer USING eleitores::integer;
+ALTER TABLE eleitor_stg ALTER ano TYPE integer USING ano::integer;
+
+DROP TABLE IF EXISTS capitais_stg;
+create table capitais_stg AS (SELECT * FROM capitais_bruto);
+ALTER TABLE capitais_stg ALTER distancia TYPE integer USING distancia::integer;
+
+drop table if exists representatividade_stg;
+create table representatividade_stg AS (SELECT * FROM representatividade_bruto);
+ALTER TABLE representatividade_stg ALTER deputados TYPE integer USING deputados::integer;
+ALTER TABLE representatividade_stg ALTER legislatura TYPE integer USING legislatura::integer;
+
+DROP TABLE IF EXISTS vagas_stg;
+create table vagas_stg AS (SELECT * FROM vagas_bruto);
+ALTER TABLE vagas_stg ALTER vagas TYPE integer USING vagas::integer;
+
+DROP TABLE IF EXISTS cota_uf_stg;
+create table cota_uf_stg AS (SELECT * FROM cota_uf_bruto);
+ALTER TABLE cota_uf_stg ALTER cota TYPE numeric(20, 2) USING cota::numeric;
+
+
+--INSIRO A REPRESENTATIVIDADE FALTANTE DA FUSÃO
+-- DELETE FROM representatividade_stg WHERE partido = 'UNIÃO' AND legislatura = 56;
+-- INSERT INTO representatividade_stg(partido, deputados, legislatura)VALUES('UNIÃO', 52, 56);
+-- 
+
+
+--REMOVO LEGISLATURA ANTERIOR E POSTERIOR
+DELETE FROM ceap_stg WHERE codlegislatura IN(54, 57);
+
+--REMOVO LIDERANÇAS
+DELETE FROM ceap_stg WHERE nucarteiraparlamentar = '';
+
+--REMOVO MENOR QUE ZERO, MENOS PASSAGENS
+DELETE FROM ceap_stg WHERE (vlrliquido < 0 AND txtdescricao NOT ILIKE 'PASSAGEM AÉREA%');
+
+--REMOVO ZEROS
+DELETE FROM ceap_stg WHERE vlrliquido = 0;
 
 --ATUALIZO PARTIDOS
 UPDATE ceap_stg SET sgpartido = 'SOLIDARIEDADE' WHERE trim(sgpartido) = 'SDD';
@@ -57,151 +82,158 @@ UPDATE ceap_stg SET sgpartido = 'CIDADANIA' WHERE trim(sgpartido) = 'PPS';
 UPDATE ceap_stg SET sgpartido = 'AVANTE' WHERE trim(sgpartido) = 'PTdoB';
 UPDATE ceap_stg SET sgpartido = 'PL' WHERE trim(sgpartido) = 'PR';
 
---CONSIDRO AS PASSAGENS AÉREAS SOMENTE UM GRUPO
+--CONSIDERO AS PASSAGENS AÉREAS SOMENTE UM GRUPO
 UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - REEMBOLSO';
 UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - RPA';
 UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - SIGEPA';
 
-UPDATE ceap_stg SET txtdescricao = 'DIVULGAÇÃO MANDATO' WHERE trim(txtdescricao) = 'DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR.';
-UPDATE ceap_stg SET txtdescricao = 'MANUTENÇÃO DE ESCRITÓRIO' WHERE trim(txtdescricao) = 'MANUTENÇÃO DE ESCRITÓRIO DE APOIO À ATIVIDADE PARLAMENTAR';
-UPDATE ceap_stg SET txtdescricao = 'ASSESSORIA TÉCNICA/JURÍDICA' WHERE trim(txtdescricao) = 'CONSULTORIAS, PESQUISAS E TRABALHOS TÉCNICOS.';
-UPDATE ceap_stg SET txtdescricao = 'LOCAÇÃO DE AUTOMÓVEIS' WHERE trim(txtdescricao) = 'LOCAÇÃO OU FRETAMENTO DE VEÍCULOS AUTOMOTORES';
-UPDATE ceap_stg SET txtdescricao = 'COMBUSTÍVEIS E LUBRIFICANTES' WHERE trim(txtdescricao) = 'COMBUSTÍVEIS E LUBRIFICANTES.';
+--EDITO OS NOMES PARA FACILITAR
+UPDATE ceap_stg SET txtdescricao = 'DIVULGAÇÃO' WHERE trim(txtdescricao) = 'DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR.';
+UPDATE ceap_stg SET txtdescricao = 'ESCRITÓRIO' WHERE trim(txtdescricao) = 'MANUTENÇÃO DE ESCRITÓRIO DE APOIO À ATIVIDADE PARLAMENTAR';
+UPDATE ceap_stg SET txtdescricao = 'ASSESSORIA' WHERE trim(txtdescricao) = 'CONSULTORIAS, PESQUISAS E TRABALHOS TÉCNICOS.';
+UPDATE ceap_stg SET txtdescricao = 'AUTOMÓVEIS' WHERE trim(txtdescricao) = 'LOCAÇÃO OU FRETAMENTO DE VEÍCULOS AUTOMOTORES';
+UPDATE ceap_stg SET txtdescricao = 'COMBUSTÍVEIS' WHERE trim(txtdescricao) = 'COMBUSTÍVEIS E LUBRIFICANTES.';
+UPDATE ceap_stg SET txtdescricao = 'HOSPEDAGEM' WHERE trim(txtdescricao) = 'HOSPEDAGEM ,EXCETO DO PARLAMENTAR NO DISTRITO FEDERAL.';
+UPDATE ceap_stg SET txtdescricao = 'ALIMENTAÇÃO' WHERE trim(txtdescricao) = 'FORNECIMENTO DE ALIMENTAÇÃO DO PARLAMENTAR';
+UPDATE ceap_stg SET txtdescricao = 'SEGURANÇA' WHERE trim(txtdescricao) = 'SERVIÇO DE SEGURANÇA PRESTADO POR EMPRESA ESPECIALIZADA.';
+UPDATE ceap_stg SET txtdescricao = 'CURSOS' WHERE trim(txtdescricao) = 'PARTICIPAÇÃO EM CURSO, PALESTRA OU EVENTO SIMILAR';
+
 --REMOVO O ÚNICO REGISTRO DO TIPO
 DELETE FROM ceap_stg WHERE txtdescricao = 'AQUISIÇÃO DE TOKENS E CERTIFICADOS DIGITAIS';
+
+ALTER TABLE ceap_stg ADD COLUMN anolegislatura integer;
+
+UPDATE ceap_stg SET anolegislatura = (CASE 
+        WHEN numano = 2015 THEN 1 
+        WHEN numano = 2016 THEN 2 
+        WHEN numano = 2017 THEN 3
+        WHEN numano = 2018 THEN 4 
+        WHEN numano = 2019 AND codlegislatura = 55 THEN 5
+        WHEN numano = 2019 THEN 1
+        WHEN numano = 2020 THEN 2
+        WHEN numano = 2021 THEN 3
+        WHEN numano = 2022 THEN 4
+        WHEN numano = 2023 AND codlegislatura = 56 THEN 5 END);
+
+ALTER TABLE ceap_stg ADD COLUMN grupo text;
+
+UPDATE ceap_stg SET grupo = 'OUTROS';
+UPDATE ceap_stg SET grupo = 'DIVULGAÇÃO' WHERE trim(txtdescricao) = 'TELEFONIA';
+UPDATE ceap_stg SET grupo = 'DIVULGAÇÃO' WHERE trim(txtdescricao) = 'DIVULGAÇÃO';
+UPDATE ceap_stg SET grupo = 'ESCRITÓRIO' WHERE trim(txtdescricao) = 'ESCRITÓRIO';
+UPDATE ceap_stg SET grupo = 'ASSESSORIA' WHERE trim(txtdescricao) = 'ASSESSORIA';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'AUTOMÓVEIS';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'COMBUSTÍVEIS';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'LOCAÇÃO OU FRETAMENTO DE AERONAVES';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'LOCAÇÃO OU FRETAMENTO DE EMBARCAÇÕES';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'PASSAGENS TERRESTRES, MARÍTIMAS OU FLUVIAIS';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'SERVIÇO DE TÁXI, PEDÁGIO E ESTACIONAMENTO';
+
 
 DROP TABLE IF EXISTS ceap;
 CREATE TABLE ceap(
 id serial primary key,
 ano integer,
+mes integer,
 anolegislatura integer,
 legislatura integer,
 uf text,
+grupo text,
 partido text,
-tipo text,
-valor numeric(20,2)
-);
-
-INSERT INTO ceap(uf, ano, legislatura, partido, tipo, valor, anolegislatura)
-SELECT c.uf, c.ano, c.legislatura, c.partido, c.tipo, SUM(c.valor), 
-    MAX(CASE 
-        WHEN c.ano = 2015 THEN 1 
-        WHEN c.ano = 2016 THEN 2 
-        WHEN c.ano = 2017 THEN 3 
-        WHEN c.ano = 2018 THEN 4 
-        WHEN c.ano = 2019 AND c.legislatura = 55 THEN 5
-        WHEN c.ano = 2019 THEN 1 
-        WHEN c.ano = 2020 THEN 2 
-        WHEN c.ano = 2021 THEN 3 
-        WHEN c.ano = 2022 THEN 4
-        WHEN c.ano = 2023 AND c.legislatura = 56 THEN 5  END)
-FROM (
-    SELECT sguf AS uf, numano::integer AS ano, nummes::integer AS mes, codlegislatura::integer AS legislatura, sgpartido AS partido, txtdescricao AS tipo, vlrliquido::numeric AS valor
-    FROM ceap_stg
-    WHERE nucarteiraparlamentar <> '' AND (vlrliquido::numeric > 0 OR txtdescricao <> 'PASSAGEM AÉREA')
-) c
-GROUP BY 1, 2, 3, 4, 5;
-
-DROP TABLE IF EXISTS eleitor;
-CREATE TABLE eleitor(
-id serial primary key,
-legislatura integer,
-uf text,
-total integer
-);
-
-DROP TABLE IF EXISTS capitais;
-CREATE TABLE capitais(
-id serial primary key,
-uf text,
+valor numeric(20,2),
+vagas integer,
+eleitores integer,
+cota numeric(20, 2),
 distancia integer
 );
 
-DROP TABLE IF EXISTS vagas;
-CREATE TABLE vagas(
+INSERT INTO ceap(uf, ano, mes, legislatura, grupo, partido, valor, anolegislatura, vagas, eleitores, cota, distancia)
+SELECT sguf AS uf, numano AS ano, nummes, codlegislatura AS legislatura, grupo, c.sgpartido AS partido, vlrliquido AS valor, anolegislatura, v.vagas, e.eleitores, co.cota, ca.distancia
+FROM ceap_stg c
+JOIN capitais_stg ca ON c.sguf = ca.uf
+JOIN vagas_stg v ON c.sguf = v.uf
+JOIN eleitor_stg e ON c.sguf = e.uf AND c.codlegislatura = (CASE WHEN e.ano = 2014 THEN 55 WHEN ano = 2018 THEN 56 END)
+JOIN cota_uf_stg co ON c.sguf = co.uf;
+--GROUP BY 1, 2, 3, 4, 6;
+
+DROP TABLE IF EXISTS assessoria_tecnica;
+CREATE TABLE assessoria_tecnica(
 id serial primary key,
-uf text,
-vagas integer
-);
-
-DROP TABLE IF EXISTS representatividade;
-CREATE TABLE representatividade(
-id serial primary key,
-partido text,
-deputados integer,
-legislatura integer
-);
-
-DROP TABLE IF EXISTS cota_uf;
-CREATE TABLE cota_uf(
-uf text,
-cota numeric(20,2)
-);
-
-INSERT INTO eleitor(uf, legislatura, total)
-SELECT uf, CASE WHEN ano::integer = 2014 THEN 55 WHEN ano::integer = 2018 THEN 56 END, eleitores::integer
-FROM eleitor_stg;
-
-INSERT INTO capitais(uf, distancia)SELECT uf, distancia::integer FROM capitais_stg;
-
-INSERT INTO vagas(uf, vagas)SELECT uf, vagas::integer FROM vagas_stg;
-
-INSERT INTO cota_uf(uf, cota)SELECT uf, replace(cota, ',', '.')::numeric FROM cota_uf_stg;
-
-INSERT INTO representatividade(partido, legislatura, deputados)SELECT trim(partido), legislatura, sum(deputados) AS deputados from representatividade_stg group by 1, 2 order by 1, 2;
-
-DROP TABLE IF EXISTS agregado;
-CREATE TABLE agregado(
-ano integer,
 legislatura integer,
-anolegislatura integer,
-uf text,
-partido text,
-tipo text,
 representatividade integer,
-distancia integer,
-vagas integer, 
-eleitores integer,
-cota numeric(20,2),
+partido text,
 valor numeric(20,2)
 );
 
-INSERT INTO agregado(uf, ano, legislatura, partido, tipo, representatividade, distancia, vagas, eleitores, cota, valor, anolegislatura)
-SELECT c.uf, c.ano, c.legislatura, c.partido, c.tipo, r.deputados, ca.distancia, v.vagas, e.total, co.cota, c.valor, c.anolegislatura
-FROM ceap c
-JOIN capitais ca ON c.uf = ca.uf
-JOIN vagas v ON c.uf = v.uf
-JOIN eleitor e ON c.uf = e.uf AND e.legislatura = c.legislatura
-JOIN cota_uf co ON c.uf = co.uf LEFT JOIN representatividade r ON c.legislatura = r.legislatura AND  c.partido = r.partido;
---GROUP BY 1, 2, 3, 4, 5;
+INSERT INTO assessoria_tecnica(legislatura, representatividade, partido, valor)
+SELECT c.codlegislatura, c.sgpartido, MAX(r.deputados), SUM(c.vlrliquido)
+FROM ceap_stg c
+JOIN representatividade_stg r ON c.codlegislatura = r.legislatura AND  c.sgpartido = r.partido
+WHERE txtdescricao = 'ASSESSORIA';
+group by 1, 2;
 
 
-DROP TABLE IF EXISTS agregado_uf;
-CREATE TABLE agregado_uf(
+DROP TABLE IF EXISTS combustiveis_agregado;
+CREATE TABLE combustiveis_agregado(
+uf text,
+ano integer,
+anolegislatura integer,
+valor numeric(20,2),
+distancia integer,
+eleitores integer,
+cota numeric(20, 2)
+);
+
+INSERT INTO combustiveis_agregado(uf, ano, anolegislatura, valor, eleitores, cota, distancia)
+SELECT sguf AS uf, c.numano, c.anolegislatura, SUM(vlrliquido)/MAX(v.vagas), MAX(e.eleitores), MAX(co.cota), MAX(ca.distancia)
+FROM ceap_stg c
+JOIN capitais_stg ca ON c.sguf = ca.uf
+JOIN vagas_stg v ON c.sguf = v.uf
+JOIN eleitor_stg e ON c.sguf = e.uf AND c.codlegislatura = (CASE WHEN e.ano = 2014 THEN 55 WHEN ano = 2018 THEN 56 END)
+JOIN cota_uf_stg co ON c.sguf = co.uf
+WHERE txtdescricao = 'COMBUSTÍVEIS'
+GROUP BY 1, 2, 3;
+
+DROP TABLE IF EXISTS combustiveis;
+CREATE TABLE combustiveis(
+ano integer,
+anolegislatura integer,
+legislatura integer,
+uf text,
+valor numeric(20,2),
+vagas integer,
+eleitores integer,
+cota numeric(20, 2),
+distancia integer
+);
+
+INSERT INTO combustiveis(uf, ano, legislatura, valor, anolegislatura, vagas, eleitores, cota, distancia)
+SELECT sguf AS uf, numano AS ano, codlegislatura AS legislatura, vlrliquido AS valor, anolegislatura, v.vagas, e.eleitores, co.cota, ca.distancia
+FROM ceap_stg c
+JOIN capitais_stg ca ON c.sguf = ca.uf
+JOIN vagas_stg v ON c.sguf = v.uf
+JOIN eleitor_stg e ON c.sguf = e.uf AND c.codlegislatura = (CASE WHEN e.ano = 2014 THEN 55 WHEN ano = 2018 THEN 56 END)
+JOIN cota_uf_stg co ON c.sguf = co.uf
+WHERE txtdescricao = 'COMBUSTÍVEIS';
+--GROUP BY 1, 2, 3, 4, 6;
+
+DROP TABLE IF EXISTS mobilidade;
+CREATE TABLE mobilidade(
 uf text,
 distancia integer,
-cota numeric(20,2),
 valor numeric(20,2)
 );
 
-INSERT INTO agregado_uf(uf, distancia, cota, valor)
-SELECT c.uf, MAX(ca.distancia), MAX(co.cota), SUM(c.valor)/MAX(v.vagas)
-FROM ceap c
-JOIN capitais ca ON c.uf = ca.uf
-JOIN vagas v ON c.uf = v.uf
---JOIN eleitor e ON c.uf = e.uf AND e.legislatura = c.legislatura
-JOIN cota_uf co ON c.uf = co.uf 
---LEFT JOIN representatividade r ON c.legislatura = r.legislatura AND  c.partido = r.partido
-GROUP BY c.uf;
-
-DROP TABLE IF EXISTS agregado_partido;
-CREATE TABLE agregado_partido(
-partido text,
-deputados integer,
-valor numeric(20,2)
-);
-
-INSERT INTO agregado_partido(partido, deputados, valor)
-select partido, deputados, valor AS valor from (select partido, sum(valor) AS valor FROM agregado WHERE partido NOT IN('DEM', 'PSL', 'UNIÃO') GROUP BY partido) p LEFT JOIN (select partido, sum(deputados) AS deputados from representatividade group by partido) r USING(partido);
+INSERT INTO mobilidade(uf, distancia, valor)
+SELECT sguf AS uf, MAX(ca.distancia), SUM(vlrliquido)/(MAX(co.cota)*MAX(v.vagas)*94)
+FROM ceap_stg c
+JOIN capitais_stg ca ON c.sguf = ca.uf
+JOIN vagas_stg v ON c.sguf = v.uf
+JOIN eleitor_stg e ON c.sguf = e.uf AND c.codlegislatura = (CASE WHEN e.ano = 2014 THEN 55 WHEN ano = 2018 THEN 56 END)
+JOIN cota_uf_stg co ON c.sguf = co.uf
+WHERE grupo = 'MOBILIDADE' AND anolegislatura <> 5
+GROUP BY 1;
 
 commit;
+
