@@ -31,7 +31,7 @@ library(lmtest)
 if(!exists("init")){
   #ler pacotes
   f_pacotes()
-  
+  source("y_boxcox.R")
   #aumenta o número máx de registros no teste shapiro.francia
   #fix(sf.test)
   
@@ -41,7 +41,7 @@ if(!exists("init")){
 f_grafico_residuos <- function(data, residuos){
   data %>%
     mutate(residuos = residuos) %>%
-    ggplot(aes(x = residuos)) +
+    ggplot(aes(x = residuos, xmin = -0.03, xmax = 0.03)) +
     geom_histogram(aes(y = ..density..), 
                    color = "grey50", 
                    fill = "grey90", 
@@ -100,6 +100,8 @@ f_lm <- function(dt, formula, step=FALSE){
   print(bptest(lm_model))
   
   print(sf.test(lm_model$residuals))   
+  
+  return(lm_model)
   
   #print(lm_model %>% plot())
 }

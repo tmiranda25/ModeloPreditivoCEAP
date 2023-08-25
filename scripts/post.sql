@@ -83,9 +83,9 @@ UPDATE ceap_stg SET sgpartido = 'AVANTE' WHERE trim(sgpartido) = 'PTdoB';
 UPDATE ceap_stg SET sgpartido = 'PL' WHERE trim(sgpartido) = 'PR';
 
 --CONSIDERO AS PASSAGENS AÉREAS SOMENTE UM GRUPO
-UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - REEMBOLSO';
-UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - RPA';
-UPDATE ceap_stg SET txtdescricao = 'PASSAGEM AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - SIGEPA';
+UPDATE ceap_stg SET txtdescricao = 'AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - REEMBOLSO';
+UPDATE ceap_stg SET txtdescricao = 'AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - RPA';
+UPDATE ceap_stg SET txtdescricao = 'AÉREA' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA - SIGEPA';
 
 --EDITO OS NOMES PARA FACILITAR
 UPDATE ceap_stg SET txtdescricao = 'DIVULGAÇÃO' WHERE trim(txtdescricao) = 'DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR.';
@@ -97,6 +97,10 @@ UPDATE ceap_stg SET txtdescricao = 'HOSPEDAGEM' WHERE trim(txtdescricao) = 'HOSP
 UPDATE ceap_stg SET txtdescricao = 'ALIMENTAÇÃO' WHERE trim(txtdescricao) = 'FORNECIMENTO DE ALIMENTAÇÃO DO PARLAMENTAR';
 UPDATE ceap_stg SET txtdescricao = 'SEGURANÇA' WHERE trim(txtdescricao) = 'SERVIÇO DE SEGURANÇA PRESTADO POR EMPRESA ESPECIALIZADA.';
 UPDATE ceap_stg SET txtdescricao = 'CURSOS' WHERE trim(txtdescricao) = 'PARTICIPAÇÃO EM CURSO, PALESTRA OU EVENTO SIMILAR';
+UPDATE ceap_stg SET txtdescricao = 'AERONAVES' WHERE trim(txtdescricao) = 'LOCAÇÃO OU FRETAMENTO DE AERONAVES';
+UPDATE ceap_stg SET txtdescricao = 'EMBARCAÇÕES' WHERE trim(txtdescricao) = 'LOCAÇÃO OU FRETAMENTO DE EMBARCAÇÕES';
+UPDATE ceap_stg SET txtdescricao = 'TERRESTRE/MARÍTIMA/FLUVIAL' WHERE trim(txtdescricao) = 'PASSAGENS TERRESTRES, MARÍTIMAS OU FLUVIAIS';
+UPDATE ceap_stg SET txtdescricao = 'TÁXI/PEDÁGIO/ESTACIONAMENTO' WHERE trim(txtdescricao) = 'SERVIÇO DE TÁXI, PEDÁGIO E ESTACIONAMENTO';
 
 --REMOVO O ÚNICO REGISTRO DO TIPO
 DELETE FROM ceap_stg WHERE txtdescricao = 'AQUISIÇÃO DE TOKENS E CERTIFICADOS DIGITAIS';
@@ -122,13 +126,13 @@ UPDATE ceap_stg SET grupo = 'DIVULGAÇÃO' WHERE trim(txtdescricao) = 'TELEFONIA
 UPDATE ceap_stg SET grupo = 'DIVULGAÇÃO' WHERE trim(txtdescricao) = 'DIVULGAÇÃO';
 UPDATE ceap_stg SET grupo = 'ESCRITÓRIO' WHERE trim(txtdescricao) = 'ESCRITÓRIO';
 UPDATE ceap_stg SET grupo = 'ASSESSORIA' WHERE trim(txtdescricao) = 'ASSESSORIA';
-UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'PASSAGEM AÉREA';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'AÉREA';
 UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'AUTOMÓVEIS';
 UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'COMBUSTÍVEIS';
-UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'LOCAÇÃO OU FRETAMENTO DE AERONAVES';
-UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'LOCAÇÃO OU FRETAMENTO DE EMBARCAÇÕES';
-UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'PASSAGENS TERRESTRES, MARÍTIMAS OU FLUVIAIS';
-UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'SERVIÇO DE TÁXI, PEDÁGIO E ESTACIONAMENTO';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'AERONAVES';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'EMBARCAÇÕES';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'TERRESTRE/MARÍTIMA/FLUVIAL';
+UPDATE ceap_stg SET grupo = 'MOBILIDADE' WHERE trim(txtdescricao) = 'TÁXI/PEDÁGIO/ESTACIONAMENTO';
 
 
 DROP TABLE IF EXISTS ceap;
@@ -139,6 +143,7 @@ mes integer,
 anolegislatura integer,
 legislatura integer,
 uf text,
+tipo text,
 grupo text,
 partido text,
 valor numeric(20,2),
@@ -148,8 +153,8 @@ cota numeric(20, 2),
 distancia integer
 );
 
-INSERT INTO ceap(uf, ano, mes, legislatura, grupo, partido, valor, anolegislatura, vagas, eleitores, cota, distancia)
-SELECT sguf AS uf, numano AS ano, nummes, codlegislatura AS legislatura, grupo, c.sgpartido AS partido, vlrliquido AS valor, anolegislatura, v.vagas, e.eleitores, co.cota, ca.distancia
+INSERT INTO ceap(uf, ano, mes, legislatura, tipo, grupo, partido, valor, anolegislatura, vagas, eleitores, cota, distancia)
+SELECT sguf AS uf, numano AS ano, nummes, codlegislatura AS legislatura, txtdescricao, grupo, c.sgpartido AS partido, vlrliquido AS valor, anolegislatura, v.vagas, e.eleitores, co.cota, ca.distancia
 FROM ceap_stg c
 JOIN capitais_stg ca ON c.sguf = ca.uf
 JOIN vagas_stg v ON c.sguf = v.uf
@@ -157,66 +162,6 @@ JOIN eleitor_stg e ON c.sguf = e.uf AND c.codlegislatura = (CASE WHEN e.ano = 20
 JOIN cota_uf_stg co ON c.sguf = co.uf;
 --GROUP BY 1, 2, 3, 4, 6;
 
-DROP TABLE IF EXISTS assessoria_tecnica;
-CREATE TABLE assessoria_tecnica(
-id serial primary key,
-legislatura integer,
-representatividade integer,
-partido text,
-valor numeric(20,2)
-);
-
-INSERT INTO assessoria_tecnica(legislatura, representatividade, partido, valor)
-SELECT c.codlegislatura, c.sgpartido, MAX(r.deputados), SUM(c.vlrliquido)
-FROM ceap_stg c
-JOIN representatividade_stg r ON c.codlegislatura = r.legislatura AND  c.sgpartido = r.partido
-WHERE txtdescricao = 'ASSESSORIA';
-group by 1, 2;
-
-
-DROP TABLE IF EXISTS combustiveis_agregado;
-CREATE TABLE combustiveis_agregado(
-uf text,
-ano integer,
-anolegislatura integer,
-valor numeric(20,2),
-distancia integer,
-eleitores integer,
-cota numeric(20, 2)
-);
-
-INSERT INTO combustiveis_agregado(uf, ano, anolegislatura, valor, eleitores, cota, distancia)
-SELECT sguf AS uf, c.numano, c.anolegislatura, SUM(vlrliquido)/MAX(v.vagas), MAX(e.eleitores), MAX(co.cota), MAX(ca.distancia)
-FROM ceap_stg c
-JOIN capitais_stg ca ON c.sguf = ca.uf
-JOIN vagas_stg v ON c.sguf = v.uf
-JOIN eleitor_stg e ON c.sguf = e.uf AND c.codlegislatura = (CASE WHEN e.ano = 2014 THEN 55 WHEN ano = 2018 THEN 56 END)
-JOIN cota_uf_stg co ON c.sguf = co.uf
-WHERE txtdescricao = 'COMBUSTÍVEIS'
-GROUP BY 1, 2, 3;
-
-DROP TABLE IF EXISTS combustiveis;
-CREATE TABLE combustiveis(
-ano integer,
-anolegislatura integer,
-legislatura integer,
-uf text,
-valor numeric(20,2),
-vagas integer,
-eleitores integer,
-cota numeric(20, 2),
-distancia integer
-);
-
-INSERT INTO combustiveis(uf, ano, legislatura, valor, anolegislatura, vagas, eleitores, cota, distancia)
-SELECT sguf AS uf, numano AS ano, codlegislatura AS legislatura, vlrliquido AS valor, anolegislatura, v.vagas, e.eleitores, co.cota, ca.distancia
-FROM ceap_stg c
-JOIN capitais_stg ca ON c.sguf = ca.uf
-JOIN vagas_stg v ON c.sguf = v.uf
-JOIN eleitor_stg e ON c.sguf = e.uf AND c.codlegislatura = (CASE WHEN e.ano = 2014 THEN 55 WHEN ano = 2018 THEN 56 END)
-JOIN cota_uf_stg co ON c.sguf = co.uf
-WHERE txtdescricao = 'COMBUSTÍVEIS';
---GROUP BY 1, 2, 3, 4, 6;
 
 DROP TABLE IF EXISTS mobilidade;
 CREATE TABLE mobilidade(
